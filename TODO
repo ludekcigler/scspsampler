@@ -1,0 +1,4 @@
+22.9.2006
+- create XML library for use in the application (based on expat)
+- define config files for the map and implement the BitmapLayer class
+- finish testing of map_cache_heap_item
