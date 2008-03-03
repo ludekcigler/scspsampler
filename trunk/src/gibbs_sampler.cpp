@@ -40,7 +40,7 @@ const Assignment GibbsSampler::getSample() {
                 // Perform burn-in
                 initSampleInternal();
 
-                for (int i = 0; i < mBurnIn; ++i) {
+                for (unsigned int i = 0; i < mBurnIn; ++i) {
                         std::cout << "Burn-in step no. " << i << std::endl;
                         modifySampleInternal();
                 }
@@ -51,23 +51,22 @@ const Assignment GibbsSampler::getSample() {
 }
 
 void GibbsSampler::initSampleInternal() {
-        for (VariableList::iterator varIt = mProblem->variables->begin();
-                        varIt != mProblem->variables->end(); ++varIt) {
+        for (VariableMap::const_iterator varIt = mProblem->getVariables()->begin();
+                        varIt != mProblem->getVariables()->end(); ++varIt) {
 
-                mSample[(*varIt)->getId()] = random_select((*varIt)->getDomain()); 
+                mSample[varIt->first] = random_select(varIt->second->getDomain()); 
         }
 }
 
 void GibbsSampler::modifySampleInternal() {
 
         // Modify values for all variables in the problem
-        for (VariableList::iterator varIt = mProblem->variables->begin();
-                        varIt != mProblem->variables->end(); ++varIt) {
+        for (VariableMap::const_iterator varIt = mProblem->getVariables()->begin();
+                        varIt != mProblem->getVariables()->end(); ++varIt) {
 
                 //std::cout << "Processing variable x_" << (*varIt)->getId() << std::endl;
-                Domain * dom = (*varIt)->getDomain();
+                const Domain * dom = varIt->second->getDomain();
                 size_t domSize = dom->size();
-                VarType old_value = mSample[(*varIt)->getId()];
 
                 // Sum of conditional probabilities P(X_j|X_{-j}), 
                 // non-normalized (therefore we need to actually compute the total...)
@@ -79,7 +78,7 @@ void GibbsSampler::modifySampleInternal() {
 
                 // Compute probability for each possible value from the domain
                 for (Domain::iterator domIt = dom->begin(); domIt != dom->end(); ++domIt, ++domainCounter) {
-                        mSample[(*varIt)->getId()] = *domIt;
+                        mSample[varIt->second->getId()] = *domIt;
                         double e = mProblem->evalAssignment(mSample);
                         e = max(e, EPSILON);
 
@@ -88,7 +87,7 @@ void GibbsSampler::modifySampleInternal() {
                 }
 
                 if (totalProbability < EPSILON) {
-                        mSample[(*varIt)->getId()] = random_select(dom);
+                        mSample[varIt->second->getId()] = random_select(dom);
                 } else {
 
                         double selectedProbability = (rand()*1.0/RAND_MAX) * totalProbability;
@@ -101,7 +100,7 @@ void GibbsSampler::modifySampleInternal() {
                                 accumulatedProbability += domainProbabilities[domainCounter];
         
                                 if (accumulatedProbability >= selectedProbability) {
-                                        mSample[(*varIt)->getId()] = *domIt;
+                                        mSample[varIt->second->getId()] = *domIt;
                                         break;
                                 }
                         }

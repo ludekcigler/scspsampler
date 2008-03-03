@@ -24,11 +24,6 @@
 
 #include "csp.h"
 
-extern const double CELAR_MOBILITY_COSTS[];
-extern const double CELAR_INTERFERENCE_COSTS[];
-extern const unsigned int CELAR_MOBILITY_COSTS_SIZE;
-extern const unsigned int CELAR_INTERFERENCE_COSTS_SIZE;
-
 enum CelarOperator {
         CELAR_OPERATOR_EQ,
         CELAR_OPERATOR_LT,
@@ -43,10 +38,7 @@ enum {
 class CelarInterferenceConstraint: public Constraint {
 public:
         CelarInterferenceConstraint(VarIdType var1, VarIdType var2, CelarOperator op, VarType targetValue, unsigned int weight):
-                mVar1(var1), mVar2(var2), mOperator(op), mTargetValue(targetValue), mWeight(weight) {
-                
-                assert(mWeight <= CELAR_INTERFERENCE_COSTS_SIZE);
-        };
+                mVar1(var1), mVar2(var2), mOperator(op), mTargetValue(targetValue), mWeight(weight) {};
 
         virtual double operator()(Assignment &a) const;
 
@@ -56,7 +48,9 @@ public:
                 s.insert(mVar2);
                 return s;
         }
-private:
+
+        static std::vector<double> COSTS;
+protected:
         VarIdType mVar1, mVar2;
         CelarOperator mOperator;
         VarType mTargetValue;
@@ -66,10 +60,7 @@ private:
 class CelarModificationConstraint: public Constraint {
 public:
         CelarModificationConstraint(VarIdType var, VarType defaultValue, unsigned int weight):
-                mVar(var), mDefaultValue(defaultValue), mWeight(weight) {
-
-                assert(mWeight <= CELAR_MOBILITY_COSTS_SIZE);
-        };
+                mVar(var), mDefaultValue(defaultValue), mWeight(weight) {};
 
         virtual double operator()(Assignment &a) const;
 
@@ -78,7 +69,9 @@ public:
                 s.insert(mVar);
                 return s;
         }
-private:
+
+        static std::vector<double> COSTS;
+protected:
         VarIdType mVar;
         VarType mDefaultValue;
         unsigned int mWeight;
@@ -100,6 +93,11 @@ void celar_load_variables(const char * fileName, const std::vector<Domain> * dom
  * Loads domains from the specified file
  */
 std::vector<Domain> * celar_load_domains(const char * fileName);
+
+/**
+ * Load costs for CelarModificationConstraint and CelarInterferenceConstraint
+ */
+void celar_load_costs(const char * fileName);
 
 #endif // CELAR_H_
 

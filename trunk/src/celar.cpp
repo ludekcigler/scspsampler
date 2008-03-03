@@ -30,7 +30,12 @@
 #include "celar.h"
 #include "utils.h"
 
+std::vector<double> CelarModificationConstraint::COSTS;
+std::vector<double> CelarInterferenceConstraint::COSTS;
+
 double CelarInterferenceConstraint::operator()(Assignment &a) const {
+        assert(mWeight <= COSTS.size());
+
         bool satisfied;
         VarType diff = abs(a[mVar1] - a[mVar2]);
 
@@ -49,18 +54,20 @@ double CelarInterferenceConstraint::operator()(Assignment &a) const {
         if (mWeight == 0) {
                 return (double)satisfied;
         } else {
-                return exp((1.0)*CELAR_INTERFERENCE_COSTS[mWeight - 1] * 
+                return exp((1.0)*COSTS[mWeight - 1] * 
                                 ((double)satisfied));
         }
 }
 
 double CelarModificationConstraint::operator()(Assignment &a) const {
+        assert(mWeight <= COSTS.size());
+
         bool satisfied = (a[mVar] == mDefaultValue);
 
         if (mWeight == 0) {
                 return (double)satisfied;
         } else {
-               return exp(-CELAR_MOBILITY_COSTS[mWeight - 1] * (double)satisfied); 
+               return exp(-COSTS[mWeight - 1] * (double)satisfied); 
         }
 }
 
@@ -167,4 +174,35 @@ std::vector<Domain> * celar_load_domains(const char * fileName) {
         }
         std::cout << "Domains: " << result->size() << std::endl;
         return result;
+}
+
+void celar_load_costs(const char * fileName) {
+        std::ifstream file(fileName);
+        std::string line;
+        std::istringstream lineStream;
+
+        if (std::getline(file, line)) {
+                // Read CELAR_MOBILITY_COSTS
+                lineStream.str(line);
+                double cost;
+                while (lineStream >> cost) {
+                        CelarModificationConstraint::COSTS.push_back(cost);
+                }
+        } else {
+                return;
+        }
+
+        lineStream.clear();
+
+        if (std::getline(file, line)) {
+                // Read CELAR_INTERFERENCE_COSTS
+                lineStream.str(line);
+                double cost;
+                while (lineStream >> cost) {
+                        std::cout << cost;
+                        CelarInterferenceConstraint::COSTS.push_back(cost);
+                }
+        } else {
+                return;
+        }
 }

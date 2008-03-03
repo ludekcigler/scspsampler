@@ -30,9 +30,9 @@ opts = Options(None, ARGUMENTS)
 
 opts.Add('warnings', 'Compiler warnings', 1)
 
-env = Environment(CPPDEFINES = ['DEBUG'], CCFLAGS = '-g',
+env = Environment(CPPDEFINES = ['DEBUG'], 
                 ENV = {'PATH': os.environ['PATH'], 'TERM': os.environ['TERM'], 'HOME': os.environ['HOME']},
-                CXXFLAGS = Split('-Wall')
+                CXXFLAGS = Split('-Wall -g -ggdb')
                 )
 
 Export("env")
@@ -53,6 +53,8 @@ def CheckPKG(context, name):
 
 conf = Configure(env, custom_tests = { 'CheckPKGConfig' : CheckPKGConfig,
                                        'CheckPKG' : CheckPKG })
+
+env.MergeFlags('-lcsp -I/usr/include/csp/ -I/usr/local/include/ -lgecodeint -lgecodekernel -lgecodesearch -lgecodeset -lgecodeminimodel')
 
 SConscript('src/SConscript')
 

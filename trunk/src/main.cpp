@@ -20,10 +20,97 @@
  */
 
 #include <iostream>
+#include <sstream>
+
+#include "optparse/optparse.h"
 
 #include "csp.h"
+#include "celar.h"
+#include "ijgp.h"
 #include "gibbs_sampler.h"
+#include "ijgp_sampler.h"
+#include "utils.h"
+
 
 int main(int argc, char ** argv) {
+        OptionParser parser(argc, argv, "scspsampler [OPTIONS] ARGS");
+
+        parser.addOption(/*aShortName*/ 's', /*aLongName*/ "sampler", /*aAlias*/ "sampler",
+                        /*aHasArg*/ true, /*aSpecifiedByDefault*/ true,
+                        /*aArg*/ "ijgp", /*aHelpText*/ "Sampler type; Either \"gibbs\" or \"ijgp\"");
+
+        parser.addOption(/*aShortName*/ 0, /*aLongName*/ "dataset", /*aAlias*/ "dataset",
+                        /*aHasArg*/ true, /*aSpecifiedByDefault*/ true,
+                        /*aArg*/ "/home/luigi/Matfyz/Diplomka/scspsampler/trunk/data/ludek/01/",
+                        /*aHelpText*/ "Path to CELAR dataset directory");
+
+        parser.addOption(/*aShortName*/ 0, /*aLongName*/ "ijgpIter", /*aAlias*/ "ijgpIter",
+                        /*aHasArg*/ true, /*aSpecifiedByDefault*/ false,
+                        /*aArg*/ "", /*aHelpText*/ "Maximum number of iterations in one IJGP run");
+
+        parser.addOption(/*aShortName*/ 'b', /*aLongName*/ "bucketSize", /*aAlias*/ "bucketSize",
+                        /*aHasArg*/ true, /*aSpecifiedByDefault*/ true,
+                        /*aArg*/ "3", /*aHelpText*/ "Maximum size of a single mini-bucket");
+
+        parser.addOption(/*aShortName*/ 'p', /*aLongName*/ "ijgpProbability", /*aAlias*/ "ijgpProbability",
+                        /*aHasArg*/ true, /*aSpecifiedByDefault*/ true,
+                        /*aArg*/ "1.0", /*aHelpText*/ "Probability with which the IJGP is performed during sampling");
+
+        parser.addOption(/*aShortName*/ 0, /*aLongName*/ "burnIn", /*aAlias*/ "burnIn",
+                        /*aHasArg*/ true, /*aSpecifiedByDefault*/ true,
+                        /*aArg*/ "1000", /*aHelpText*/ "Number of burn-in steps for the Gibbs sampler");
+
+        parser.addOption(/*aShortName*/ 'n', /*aLongName*/ "numSamples", /*aAlias*/ "numSamples",
+                        /*aHasArg*/ true, /*aSpecifiedByDefault*/ true,
+                        /*aArg*/ "100", /*aHelpText*/ "Number of samples we should generate");
+
+        try {
+                parser.parseOptions();
+        } catch (const OptionNotRecognized & e) {
+                std::cerr << e.what() << std::endl << std::endl;
+                std::cout << parser.usage();
+                return EXIT_FAILURE;
+        }
+
+        if (parser.isSpecified("help")) {
+                std::cout << parser.usage();
+                return EXIT_SUCCESS;
+        }
+
+        // Load info about CSP problem
+        std::string dataDir = parser.getOptionArg("dataset");
+        celar_load_costs((dataDir + "/costs.txt").c_str());
+        ConstraintList * c = celar_load_constraints((dataDir + "/ctr.txt").c_str());
+        std::vector<Domain> * d = celar_load_domains((dataDir + "/dom.txt").c_str());
+        VariableMap * v = new VariableMap();
+        celar_load_variables((dataDir + "/var.txt").c_str(), d, v, c);
+
+        CSPProblem * p = new CSPProblem(v, c);
+
+        std::string samplerId = parser.getOptionArg("sampler");
+        CSPSampler * sampler;
+
+        if (samplerId == "ijgp") {
+                int miniBucketSize = parseArg<int>(parser.getOptionArg("bucketSize"));
+                double probability = parseArg<double>(parser.getOptionArg("ijgpProbability"));
+
+                sampler = new IJGPSampler(p, miniBucketSize, probability);
+        } else if (samplerId == "gibbs") {
+                int burnIn = parseArg<int>(parser.getOptionArg("burnIn"));
+
+                sampler = new GibbsSampler(p, burnIn);
+        }
+
+        unsigned int numSamples = parseArg<unsigned int>(parser.getOptionArg("numSamples"));
+
+        Assignment a;
+        for (int i = 0; i < numSamples; ++i) {
+                a = sampler->getSample();
+                std::cout << "New sample, eval " << p->evalAssignment(a) << " ";
+                assignment_pprint(a);
+                std::cout << std::endl;
+        }
+
+        return EXIT_SUCCESS;
 }
 

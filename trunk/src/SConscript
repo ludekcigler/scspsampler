@@ -21,6 +21,6 @@
 
 Import('env')
 
-env.Program(target = 'gibbs_sampler', source = Split('gibbs_sampler.cpp utils.cpp csp.cpp celar.cpp'))
+env.Program(target = 'scspsampler', source = Split('csp.cpp celar.cpp gibbs_sampler.cpp main.cpp ijgp.cpp ijgp_sampler.cpp utils.cpp optparse/optparse.cpp'))
 
-env.Default('gibbs_sampler')
+env.Default('scspsampler')

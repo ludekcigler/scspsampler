@@ -45,16 +45,16 @@ typedef std::map<VarType, double> ProbabilityDistribution;
 
 class Variable {
 public:
-        Variable(VarIdType id, Domain * d): mId(id), mDomain(d) {};
+        Variable(const VarIdType &id, Domain * d): mId(id), mDomain(d) {};
 
-        ~Variable() {
+        virtual ~Variable() {
                 delete mDomain;
         };
 
         VarIdType getId() const { return mId; };
 
         const Domain * getDomain() const { return mDomain; };
-private:
+protected:
         VarIdType mId; // Index of the variable
         Domain *mDomain; // Domain of the variable
 };

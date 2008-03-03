@@ -23,13 +23,40 @@ Import('env')
 
 celar_gibbs_node = env.Program(target = 'celar_gibbs', source = Split('celar_gibbs.cpp ../src/utils.cpp \
                                                     ../src/csp.cpp \
-                                                    ../src/celar.cpp ../src/gibbs_sampler.cpp'))
+                                                    ../src/celar.cpp ../src/gibbs_sampler.cpp \
+                                                    ../src/optparse/optparse.cpp'))
 
 ijgp_test_node = env.Program(target = 'ijgp_test', source = Split('ijgp_test.cpp ../src/utils.cpp \
                                                     ../src/csp.cpp \
                                                     ../src/celar.cpp ../src/ijgp.cpp \
-                                                    ../src/ijgp_sampler.cpp'))
+                                                    ../src/ijgp_sampler.cpp \
+                                                    ../src/optparse/optparse.cpp'))
 
-env.Alias("celar_gibbs", celar_gibbs_node);
-env.Alias("ijgp_test", ijgp_test_node);
+optparse_test_node = env.Program(target = 'optparse', source = Split('optparse.cpp ../src/optparse/optparse.cpp'))
+
+celar_exact_node = env.Program(target = 'celar_exact', source = Split('celar_exact.cpp ../src/celar.cpp \
+                                                    ../src/utils.cpp \
+                                                    ../src/exact/celar_exact.cpp \
+                                                    ../src/exact/CommonMain.cc ../src/exact/Conversions.cc \
+                                                    ../src/exact/Solve.cc ../src/exact/getopt.cc \
+                                                    ../src/optparse/optparse.cpp'))
+
+celar_gecode_node = env.Program(target = 'celar_gecode', source = Split('celar_gecode.cpp \
+                                                    ../src/gecode/support.cc \
+                                                    ../src/gecode/timer.cc \
+                                                    ../src/utils.cpp \
+                                                    ../src/optparse/optparse.cpp'))
+
+queens_node = env.Program(target = 'queens', source = Split('queens.cc \
+                                                    ../src/gecode/support.cc \
+                                                    ../src/gecode/timer.cc \
+                                                    ../src/utils.cpp \
+                                                    ../src/optparse/optparse.cpp'))
+
+env.Alias("celar_gibbs", celar_gibbs_node)
+env.Alias("ijgp_test", ijgp_test_node)
+env.Alias("optparse", optparse_test_node)
+env.Alias("celar_exact", celar_exact_node)
+env.Alias("celar_gecode", celar_gecode_node)
+env.Alias("queens", queens_node)
 
