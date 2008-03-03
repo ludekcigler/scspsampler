@@ -26,10 +26,10 @@
 #include "../src/celar.h"
 #include "../src/gibbs_sampler.h"
 
-const double CELAR_MOBILITY_COSTS[] = {0, 0, 0, 0};
-const double CELAR_INTERFERENCE_COSTS[] = {1.0, 1, 1, 1};
-const unsigned int CELAR_MOBILITY_COSTS_SIZE = 4;
-const unsigned int CELAR_INTERFERENCE_COSTS_SIZE = 4;
+double CELAR_MOBILITY_COSTS[] = {0, 0, 0, 0};
+double CELAR_INTERFERENCE_COSTS[] = {1.0, 1, 1, 1};
+unsigned int CELAR_MOBILITY_COSTS_SIZE = 4;
+unsigned int CELAR_INTERFERENCE_COSTS_SIZE = 4;
 
 const unsigned int GIBBS_SAMPLER_BURN_IN = 1000;
 

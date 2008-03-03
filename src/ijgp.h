@@ -220,6 +220,8 @@ public:
          */
         ProbabilityDistribution conditionalDistribution(CSPProblem * aProblem, 
                         Variable * aTargetVariable, const Assignment & aEvidence);
+
+        static unsigned int MAX_PROPAGATION_ITERATIONS;
 private:
         /**
          * An (arbitrary) ordering of the graph nodes
@@ -256,8 +258,6 @@ private:
         double mTotalProbability;
         bool mNormalized;
 };
-
-extern const unsigned int IJGP_MAX_ITERATIONS;
 
 const int JOIN_GRAPH_ERROR_KL_UNDEFINED = -1;
 const double JOIN_GRAPH_KL_DIVERGENCE_MAX = 1e10;

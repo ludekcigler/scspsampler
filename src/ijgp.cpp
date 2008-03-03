@@ -33,6 +33,8 @@
 #include "ijgp.h"
 #include "utils.h"
 
+unsigned int JoinGraph::MAX_PROPAGATION_ITERATIONS = 10;
+
 JoinGraphNode::~JoinGraphNode() {
         purgeMessages();
 
@@ -564,10 +566,8 @@ void JoinGraph::iterativePropagation(CSPProblem * aProblem, Assignment & aEviden
 
         unsigned int numIterations = 0;
         std::cout << "IJGP ";
-        assignment_pprint(aEvidence);
-        std::cout << " ";
 
-        while (numIterations < IJGP_MAX_ITERATIONS) {
+        while (numIterations < MAX_PROPAGATION_ITERATIONS) {
 
                 std::cout << ".";
                 std::cout.flush();
@@ -617,6 +617,8 @@ void JoinGraph::iterativePropagation(CSPProblem * aProblem, Assignment & aEviden
 
                 ++numIterations;
         }
+
+        assignment_pprint(aEvidence);
         std::cout << std::endl;
 }
 

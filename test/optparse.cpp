@@ -19,34 +19,22 @@
  *
  */
 
-#ifndef UTILS_H_
-#define UTILS_H_
+#include <iostream>
 
-VarType random_select(const Domain *d);
+#include "../src/optparse/optparse.h"
 
-void tokenize(const std::string& str, std::vector<std::string>& tokens, const std::string& delimiters = " ");
+int main(int argc, char ** argv) {
+        OptionParser parser(argc, argv, "optparse [OPTIONS] ARGS");
 
-template<class T> T parseArg(const std::string & aArg) {
-        std::istringstream istr(aArg);
-        T result;
+        parser.addOption('f', "file", "file", false, true, false, "", "Constraint file");
+        parser.addOption(0, "yep", "yep", false, false, false, "", "Yep, empty short option");
 
-        istr >> result;
-        return result;
+        parser.parseOptions();
+
+        if (parser.isSpecified("help")) {
+                std::cout << parser.usage();
+        } else if (parser.isSpecified("file")) {
+                std::cout << parser.getOptionArg("file") << std::endl;
+        }
+        return 0;
 }
-
-extern const double EPSILON;
-
-static int min(int x, int y) {
-        return (((x) < (y)) ? (x) : (y));
-}
-
-static int max(int x, int y) {
-        return (((x) > (y)) ? (x) : (y));
-}
-
-static double max(double x, double y) {
-        return (((x) > (y)) ? (x) : (y));
-}
-
-#endif // UTILS_H_
-
