@@ -33,6 +33,8 @@
 std::vector<double> CelarModificationConstraint::COSTS;
 std::vector<double> CelarInterferenceConstraint::COSTS;
 
+const double EXP_ROOT = 1.6;
+
 double CelarInterferenceConstraint::operator()(Assignment &a) const {
         assert(mWeight <= COSTS.size());
 
@@ -52,10 +54,9 @@ double CelarInterferenceConstraint::operator()(Assignment &a) const {
         }
 
         if (mWeight == 0) {
-                return (double)satisfied;
+                return satisfied ? 1.0 : EPSILON; // Let's give a smallish chance to unfeasible solutions
         } else {
-                return exp((1.0)*COSTS[mWeight - 1] * 
-                                ((double)satisfied));
+                return exp(log(EXP_ROOT) * COSTS[mWeight - 1] * (double)satisfied);
         }
 }
 
@@ -65,9 +66,9 @@ double CelarModificationConstraint::operator()(Assignment &a) const {
         bool satisfied = (a[mVar] == mDefaultValue);
 
         if (mWeight == 0) {
-                return (double)satisfied;
+                return satisfied ? 1.0 : EPSILON;
         } else {
-               return exp(-COSTS[mWeight - 1] * (double)satisfied); 
+               return exp(log(EXP_ROOT) * COSTS[mWeight - 1] * (double)satisfied); 
         }
 }
 
@@ -83,7 +84,7 @@ ConstraintList * celar_load_constraints(const char *fileName) {
                 tokenize(line, words);
 
                 if (words.size() < 5) {
-                        std::cout << "Wrong constraint specified: " << line << std::endl;
+                        std::cerr << "Wrong constraint specified: " << line << std::endl;
                         continue;
                 }
 
@@ -113,7 +114,6 @@ ConstraintList * celar_load_constraints(const char *fileName) {
         }
                 
 
-        std::cout << "Constraints: " << result->size() << std::endl;
         return result;
 }
 
@@ -150,8 +150,6 @@ void celar_load_variables(const char * fileName, const std::vector<Domain> * dom
                 }
                 
         }
-        std::cout << "Variables: " << variables->size() << std::endl;
-        std::cout << "Constraints: " << constraints->size() << std::endl;
 }
 
 std::vector<Domain> * celar_load_domains(const char * fileName) {
@@ -172,7 +170,6 @@ std::vector<Domain> * celar_load_domains(const char * fileName) {
                 }
                 result->push_back(d);
         }
-        std::cout << "Domains: " << result->size() << std::endl;
         return result;
 }
 
@@ -182,11 +179,12 @@ void celar_load_costs(const char * fileName) {
         std::istringstream lineStream;
 
         if (std::getline(file, line)) {
-                // Read CELAR_MOBILITY_COSTS
+                // Read CELAR_INTERFERENCE_COSTS
                 lineStream.str(line);
                 double cost;
                 while (lineStream >> cost) {
-                        CelarModificationConstraint::COSTS.push_back(cost);
+                        CelarInterferenceConstraint::COSTS.push_back(cost);
+
                 }
         } else {
                 return;
@@ -195,12 +193,11 @@ void celar_load_costs(const char * fileName) {
         lineStream.clear();
 
         if (std::getline(file, line)) {
-                // Read CELAR_INTERFERENCE_COSTS
+                // Read CELAR_MOBILITY_COSTS
                 lineStream.str(line);
                 double cost;
                 while (lineStream >> cost) {
-                        std::cout << cost;
-                        CelarInterferenceConstraint::COSTS.push_back(cost);
+                        CelarModificationConstraint::COSTS.push_back(cost);
                 }
         } else {
                 return;

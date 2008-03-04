@@ -36,17 +36,13 @@ template<class T> T parseArg(const std::string & aArg) {
 
 extern const double EPSILON;
 
-static int min(int x, int y) {
-        return (((x) < (y)) ? (x) : (y));
-}
+int min(int x, int y);
 
-static int max(int x, int y) {
-        return (((x) > (y)) ? (x) : (y));
-}
+double min(double x, double y);
 
-static double max(double x, double y) {
-        return (((x) > (y)) ? (x) : (y));
-}
+int max(int x, int y);
+
+double max(double x, double y);
 
 #endif // UTILS_H_
 

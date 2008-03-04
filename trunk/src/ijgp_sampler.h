@@ -27,7 +27,8 @@
 
 class IJGPSampler: public CSPSampler {
 public:
-        IJGPSampler(CSPProblem * aProblem, unsigned int aMaxBucketSize, double aIJGPProbability);
+        IJGPSampler(CSPProblem * aProblem, unsigned int aMaxBucketSize, double aIJGPProbability,
+                        unsigned int aMaxIJGPIterations);
         ~IJGPSampler();
         
         virtual const Assignment getSample();
@@ -40,6 +41,7 @@ private:
         JoinGraph * mJoinGraph;
         unsigned int mMaxBucketSize;
         double mIJGPProbability;
+        unsigned int mMaxIJGPIterations;
 };
 
 #endif // IJGP_SAMPLER_H_

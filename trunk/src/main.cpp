@@ -46,7 +46,7 @@ int main(int argc, char ** argv) {
 
         parser.addOption(/*aShortName*/ 0, /*aLongName*/ "ijgpIter", /*aAlias*/ "ijgpIter",
                         /*aHasArg*/ true, /*aSpecifiedByDefault*/ false,
-                        /*aArg*/ "", /*aHelpText*/ "Maximum number of iterations in one IJGP run");
+                        /*aArg*/ "10", /*aHelpText*/ "Maximum number of iterations in one IJGP run");
 
         parser.addOption(/*aShortName*/ 'b', /*aLongName*/ "bucketSize", /*aAlias*/ "bucketSize",
                         /*aHasArg*/ true, /*aSpecifiedByDefault*/ true,
@@ -90,23 +90,34 @@ int main(int argc, char ** argv) {
         std::string samplerId = parser.getOptionArg("sampler");
         CSPSampler * sampler;
 
+        unsigned int numSamples = parseArg<unsigned int>(parser.getOptionArg("numSamples"));
+        std::cout << "PARAMS:" << std::endl;
+        std::cout << "sampler:\t" << samplerId << std::endl;
+        std::cout << "dataset:\t" << dataDir << std::endl;
+        std::cout << "numSamples:\t" << numSamples << std::endl;
+
         if (samplerId == "ijgp") {
                 int miniBucketSize = parseArg<int>(parser.getOptionArg("bucketSize"));
-                double probability = parseArg<double>(parser.getOptionArg("ijgpProbability"));
+                unsigned int ijgpIter = parseArg<unsigned int>(parser.getOptionArg("ijgpIter"));
+                double ijgpProbability = parseArg<double>(parser.getOptionArg("ijgpProbability"));
 
-                sampler = new IJGPSampler(p, miniBucketSize, probability);
+                sampler = new IJGPSampler(p, miniBucketSize, ijgpProbability, ijgpIter);
+                std::cout << "mini-bucket size:\t" << miniBucketSize << std::endl;
+                std::cout << "IJGP probability:\t" << ijgpProbability << std::endl;
+                std::cout << "IJGP iterations:\t" << ijgpIter << std::endl;
         } else if (samplerId == "gibbs") {
                 int burnIn = parseArg<int>(parser.getOptionArg("burnIn"));
 
                 sampler = new GibbsSampler(p, burnIn);
+                std::cout << "burn-in:\t" << burnIn << std::endl;
         }
+        std::cout << std::endl;
 
-        unsigned int numSamples = parseArg<unsigned int>(parser.getOptionArg("numSamples"));
 
         Assignment a;
-        for (int i = 0; i < numSamples; ++i) {
+        for (unsigned int i = 0; i < numSamples; ++i) {
                 a = sampler->getSample();
-                std::cout << "New sample, eval " << p->evalAssignment(a) << " ";
+                std::cout << "SAMPLE " << p->evalAssignment(a) << " | ";
                 assignment_pprint(a);
                 std::cout << std::endl;
         }

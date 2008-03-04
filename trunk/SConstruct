@@ -54,7 +54,7 @@ def CheckPKG(context, name):
 conf = Configure(env, custom_tests = { 'CheckPKGConfig' : CheckPKGConfig,
                                        'CheckPKG' : CheckPKG })
 
-env.MergeFlags('-lcsp -I/usr/include/csp/ -I/usr/local/include/ -lgecodeint -lgecodekernel -lgecodesearch -lgecodeset -lgecodeminimodel')
+env.MergeFlags('-lm -I/usr/local/include/ -lgecodeint -lgecodekernel -lgecodesearch -lgecodeset -lgecodeminimodel')
 
 SConscript('src/SConscript')
 
