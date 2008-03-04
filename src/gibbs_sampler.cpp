@@ -41,7 +41,7 @@ const Assignment GibbsSampler::getSample() {
                 initSampleInternal();
 
                 for (unsigned int i = 0; i < mBurnIn; ++i) {
-                        std::cout << "Burn-in step no. " << i << std::endl;
+                        std::cout << "GIBBS burn-in step " << i << std::endl;
                         modifySampleInternal();
                 }
                 mInitialized = true;

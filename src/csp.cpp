@@ -235,14 +235,12 @@ void CSPProblem::schematicMiniBucket(unsigned int aMaxBucketSize, const std::vec
 }
 
 void assignment_pprint(const Assignment & a) {
-        std::cout << "{";
         for (Assignment::const_iterator it = a.begin(); it != a.end(); ++it) {
                 if (it != a.begin()) {
                         std::cout << ", ";
                 }
-                std::cout << "x_" << it->first << ": " << it->second;
+                std::cout << "" << it->first << ": " << it->second;
         }
-        std::cout << "}";
 }
 
 void scope_pprint(const Scope & a) {

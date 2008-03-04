@@ -19,13 +19,17 @@
  *
  */
 
+#include <iostream>
+
 #include "csp.h"
 #include "utils.h"
 #include "ijgp.h"
 #include "ijgp_sampler.h"
 
-IJGPSampler::IJGPSampler(CSPProblem * aProblem, unsigned int aMaxBucketSize, double aIJGPProbability):
-        CSPSampler(aProblem), mMaxBucketSize(aMaxBucketSize), mIJGPProbability(aIJGPProbability) {
+IJGPSampler::IJGPSampler(CSPProblem * aProblem, unsigned int aMaxBucketSize, double aIJGPProbability,
+                unsigned int aMaxIJGPIterations):
+        CSPSampler(aProblem), mMaxBucketSize(aMaxBucketSize), mIJGPProbability(aIJGPProbability),
+        mMaxIJGPIterations(aMaxIJGPIterations) {
         
         mJoinGraph = JoinGraph::createJoinGraph(aProblem, aMaxBucketSize);
 }
@@ -38,14 +42,17 @@ const Assignment IJGPSampler::getSample() {
         mJoinGraph->purgeMessages();
         Assignment evidence;
 
-        mJoinGraph->iterativePropagation(mProblem, evidence);
-
         for (VariableMap::const_iterator varIt = mProblem->getVariables()->begin();
                         varIt != mProblem->getVariables()->end(); ++varIt) {
 
                 Variable * targetVar = varIt->second;
 
-                mJoinGraph->iterativePropagation(mProblem, evidence);
+                // If we are handling the first variable or with mIJGPProbability probability,
+                // run IJGP
+                if (evidence.empty() ||
+                                ((1.0*rand()) / RAND_MAX) <= mIJGPProbability) {
+                        mJoinGraph->iterativePropagation(mProblem, evidence, mMaxIJGPIterations);
+                }
 
                 const ProbabilityDistribution dist = mJoinGraph->conditionalDistribution(mProblem,
                                 targetVar, evidence);

@@ -57,3 +57,18 @@ void tokenize(const std::string& str, std::vector<std::string>& tokens, const st
     }
 }
 
+int min(int x, int y) {
+        return (((x) < (y)) ? (x) : (y));
+}
+
+double min(double x, double y) {
+        return (((x) < (y)) ? (x) : (y));
+}
+
+int max(int x, int y) {
+        return (((x) > (y)) ? (x) : (y));
+}
+
+double max(double x, double y) {
+        return (((x) > (y)) ? (x) : (y));
+}

@@ -33,8 +33,6 @@
 #include "ijgp.h"
 #include "utils.h"
 
-unsigned int JoinGraph::MAX_PROPAGATION_ITERATIONS = 10;
-
 JoinGraphNode::~JoinGraphNode() {
         purgeMessages();
 
@@ -555,7 +553,7 @@ void JoinGraph::orderNodes() {
         }
 }
 
-void JoinGraph::iterativePropagation(CSPProblem * aProblem, Assignment & aEvidence) {
+void JoinGraph::iterativePropagation(CSPProblem * aProblem, Assignment & aEvidence, unsigned int aMaxIterations) {
 
         Scope evidenceScope;
 
@@ -567,7 +565,7 @@ void JoinGraph::iterativePropagation(CSPProblem * aProblem, Assignment & aEviden
         unsigned int numIterations = 0;
         std::cout << "IJGP ";
 
-        while (numIterations < MAX_PROPAGATION_ITERATIONS) {
+        while (numIterations < aMaxIterations) {
 
                 std::cout << ".";
                 std::cout.flush();
@@ -610,7 +608,8 @@ void JoinGraph::iterativePropagation(CSPProblem * aProblem, Assignment & aEviden
                 */
 
                 if (kl_err >= 0 && fabs(kl_divergence) < JOIN_GRAPH_KL_DIVERGENCE_MIN) {
-                        std::cout << "Breaking, KL divergence is " << kl_divergence << std::endl;
+                        //std::cout << "Breaking, KL divergence is " << kl_divergence << std::endl;
+                        std::cout << ";";
                         break;
                 }
 
@@ -618,6 +617,7 @@ void JoinGraph::iterativePropagation(CSPProblem * aProblem, Assignment & aEviden
                 ++numIterations;
         }
 
+        std::cout << " ";
         assignment_pprint(aEvidence);
         std::cout << std::endl;
 }

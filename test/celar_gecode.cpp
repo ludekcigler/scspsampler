@@ -10,13 +10,12 @@
 #include <gecode/minimodel.hh>
 #include <gecode/int.hh>
 
-typedef int VarIdType;
-typedef int VarType;
-typedef std::set<VarType> Domain;
-
+#include "../src/csp.h"
 #include "../src/utils.h"
+#include "../src/celar.h"
 
 std::string g_datadir = "/home/luigi/Matfyz/Diplomka/scspsampler/trunk/data/ludek/04/";
+CSPProblem * g_problem = 0;
 
 class Celar: public Example {
 public:
@@ -154,11 +153,19 @@ public:
         }
 
         virtual void print(void) {
-               for (unsigned int i = 0; i < mIntVars.size(); ++i) {
-                       std::cout << mIntVars[i] << ", ";
-               }
+                Assignment a;
+                for (int i = 0; i < mIntVars.size(); ++i) {
+                        a[mVariableIds[i]] = mIntVars[i].val();
+                }
+                std::cout << "SAMPLE " << g_problem->evalAssignment(a) << " | ";
 
-               std::cout << std::endl;
+                for (int i = 0; i < mIntVars.size(); ++i) {
+                        std::cout << mVariableIds[i] << ": " << mIntVars[i];
+                        if (i != mIntVars.size() - 1)
+                                std::cout << ", ";
+                }
+
+                std::cout << std::endl;
         }
 
         Celar(bool share, Celar &s): Example(share, s) {
@@ -200,9 +207,22 @@ int main(int argc, char** argv) {
 
         g_datadir = parser.getOptionArg("dataset");
 
+        // Create CELAR constraint problem from the dataset
+        celar_load_costs((g_datadir + "/costs.txt").c_str());
+        ConstraintList * c = celar_load_constraints((g_datadir + "/ctr.txt").c_str());
+        std::vector<Domain> * d = celar_load_domains((g_datadir + "/dom.txt").c_str());
+        VariableMap * v = new VariableMap();
+        celar_load_variables((g_datadir + "/var.txt").c_str(), d, v, c);
+
+        g_problem = new CSPProblem(v, c);
+
         Options opt("Celar");
         opt.solutions = -1;
         opt.parse(argc,argv);
         Example::run<Celar,Gecode::DFS>(opt);
+
+        delete g_problem;
+        g_problem = 0;
+
         return EXIT_SUCCESS;
 }

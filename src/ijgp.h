@@ -30,6 +30,8 @@
 
 #include "csp.h"
 
+#define MAX_PROPAGATION_ITERATIONS 10
+
 class Vertex;
 
 class Edge;
@@ -188,7 +190,8 @@ public:
          * Performs iterative join-graph propagation on this graph
          * given evidence
          */
-        void iterativePropagation(CSPProblem * aProblem, Assignment & aEvidence);
+        void iterativePropagation(CSPProblem * aProblem, Assignment & aEvidence,
+                        unsigned int aMaxIterations = MAX_PROPAGATION_ITERATIONS);
 
         /**
          * Cleans up messages from previous computations
@@ -221,7 +224,6 @@ public:
         ProbabilityDistribution conditionalDistribution(CSPProblem * aProblem, 
                         Variable * aTargetVariable, const Assignment & aEvidence);
 
-        static unsigned int MAX_PROPAGATION_ITERATIONS;
 private:
         /**
          * An (arbitrary) ordering of the graph nodes
