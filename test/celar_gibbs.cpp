@@ -20,6 +20,7 @@
  */
 
 #include <iostream>
+#include <map>
 #include <math.h>
 
 #include "../src/csp.h"
@@ -40,14 +41,56 @@ int main(int argc, char ** argv) {
         celar_load_variables("data/ludek/01/var.txt", d, v, c);
 
         CSPProblem * p = new CSPProblem(v, c);
+        Assignment evidence;
+        //evidence[0] = 9;
+        std::map<VarIdType, Domain> removedValues;
 
-        GibbsSampler * sampler = new GibbsSampler(p, GIBBS_SAMPLER_BURN_IN);
+        if (!p->propagateConstraints(evidence, removedValues)) {
+                std::cout << "No solutions at all" << std::endl;
+        } else {
+                std::cout << "Removed values: " << removedValues.size() << std::endl;
+                for (std::map<VarIdType, Domain>::const_iterator valIt = removedValues.begin();
+                                valIt != removedValues.end(); ++valIt) {
+
+                        std::cout << valIt->first << ": ";
+                        for (Domain::const_iterator domIt = valIt->second.begin(); domIt != valIt->second.end(); ++domIt) {
+                                std::cout << *domIt << ", ";
+                        }
+                        std::cout << std::endl;
+                }
+
+                std::cout << "Domains:" << std::endl;
+                for (VariableMap::iterator varIt = v->begin(); varIt != v->end(); ++varIt) {
+                        const Domain *d = varIt->second->getDomain();
+
+                        std::cout << varIt->first << ": ";
+                        for (Domain::const_iterator domIt = d->begin(); domIt != d->end(); ++domIt) {
+                                std::cout << *domIt << ", ";
+                        }
+                        std::cout << std::endl;
+                }
+        }
+
+        p->restoreDomains(removedValues);
+        std::cout << "Restored domains:" << std::endl;
+        for (VariableMap::iterator varIt = v->begin(); varIt != v->end(); ++varIt) {
+                const Domain *d = varIt->second->getDomain();
+
+                std::cout << varIt->first << ": ";
+                for (Domain::const_iterator domIt = d->begin(); domIt != d->end(); ++domIt) {
+                        std::cout << *domIt << ", ";
+                }
+                std::cout << std::endl;
+        }
+
+
+        /*GibbsSampler * sampler = new GibbsSampler(p, GIBBS_SAMPLER_BURN_IN);
         
         Assignment a;
         for (int i = 0; i < 100; ++i) {
                 a = sampler->getSample();
                 std::cout << "New sample, eval " << p->evalAssignment(a) << " ";
                 assignment_pprint(a);
-        }
+        }*/
         return EXIT_SUCCESS;
 }

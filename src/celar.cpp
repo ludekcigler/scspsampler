@@ -72,6 +72,75 @@ double CelarModificationConstraint::operator()(Assignment &a) const {
         }
 }
 
+bool CelarInterferenceConstraint::hasSupport(VarIdType aVarId, VarType aValue,
+                const CSPProblem &aProblem, const Assignment &aEvidence) {
+
+        assert(aVarId == mVar1 || aVarId == mVar2);
+
+        if (isSoft())
+                return true; // Soft-constraints do not propagate any value out
+
+        VarIdType otherVarId = (aVarId == mVar1) ? mVar2 : mVar1;
+
+        Assignment::const_iterator evidenceIt = aEvidence.find(aVarId);
+        Assignment::const_iterator evidenceItOther = aEvidence.find(otherVarId);
+
+        if (evidenceIt != aEvidence.end())
+                return (evidenceIt->second == aValue); // If the value is in evidence, OK, otherwise no support
+
+        if (evidenceItOther != aEvidence.end()) {
+                // If the other variable is in evidence, check only against that value
+                switch (mOperator) {
+                        case CELAR_OPERATOR_GT:
+                                return abs(aValue - evidenceItOther->second) > mTargetValue;
+                                break;
+                        case CELAR_OPERATOR_EQ:
+                                return abs(aValue - evidenceItOther->second) == mTargetValue;
+                                break;
+                        case CELAR_OPERATOR_LT:
+                                return abs(aValue - evidenceItOther->second) < mTargetValue;
+                                break;
+                }
+        }
+
+        // If neither of the two variables is in the evidence, check their domains
+        const Domain * otherVarDomain = aProblem.getVariableById(otherVarId)->getDomain();
+        // Depending on the operators, checking for support can be easy
+        if (mOperator == CELAR_OPERATOR_EQ) {
+                return (otherVarDomain->find(aValue - mTargetValue) != otherVarDomain->end()) ||
+                        (otherVarDomain->find(aValue + mTargetValue) != otherVarDomain->end());
+        } else if (mOperator == CELAR_OPERATOR_GT) {
+                Domain::const_iterator bound1 = otherVarDomain->upper_bound(aValue + mTargetValue);
+                Domain::const_iterator bound2 = otherVarDomain->lower_bound(aValue - mTargetValue);
+                --bound2;
+
+                return ((bound1 != otherVarDomain->end() && *bound1 > aValue + mTargetValue) || 
+                                (bound2 != otherVarDomain->end() && *bound2 < aValue - mTargetValue));
+        } else {
+                // CELAR_OPERATOR_LT
+                Domain::const_iterator bound = otherVarDomain->lower_bound(aValue + mTargetValue);
+                --bound;
+
+                return (bound != otherVarDomain->end() && *bound < aValue + mTargetValue && *bound > aValue - mTargetValue);
+        }
+}
+
+bool CelarModificationConstraint::hasSupport(VarIdType aVarId, VarType aValue,
+                const CSPProblem &aProblem, const Assignment &aEvidence) {
+
+        if (isSoft())
+                return true;
+
+        Assignment::const_iterator evidenceIt = aEvidence.find(mVar);
+        if (evidenceIt == aEvidence.end()) {
+                // The variable is not present in the evidence
+                // Support for modification constraints is easy, just check if the value equals target value
+                return aValue == mDefaultValue;
+        } else {
+                // Otherwise just check, if the evidence equals given value, if not, this value has no support
+                return (evidenceIt->second == aValue);
+        }
+}
 
 ConstraintList * celar_load_constraints(const char *fileName) {
         std::ifstream file(fileName);

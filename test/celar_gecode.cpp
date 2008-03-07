@@ -21,9 +21,7 @@ class Celar: public Example {
 public:
         Celar(const Options &opt): mIntVars(this, 4, 0, 1) {
                 
-                std::cout << this->status() << ", " << Gecode::SS_FAILED << std::endl;
                 // Load domains
-                
                 std::ifstream domainFile((g_datadir + "/dom.txt").c_str());
                 std::string line;
 

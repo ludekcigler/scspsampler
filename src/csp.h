@@ -29,19 +29,8 @@
 
 #include <assert.h>
 
-typedef int VarType;
-
-typedef unsigned int VarIdType;
-
-typedef std::set<VarType> Domain;
-
-typedef std::map<VarIdType, VarType> Assignment;
-
-typedef std::set<VarIdType> Scope;
-
-typedef std::vector<Scope> Bucket;
-
-typedef std::map<VarType, double> ProbabilityDistribution;
+#include "types.h"
+#include "domain_interval.h"
 
 class Variable {
 public:
@@ -54,6 +43,24 @@ public:
         VarIdType getId() const { return mId; };
 
         const Domain * getDomain() const { return mDomain; };
+
+        /**
+         * Erases a given value from the domain
+         */
+        void eraseFromDomain(VarType aValue) {
+                mDomain->erase(aValue);
+        }
+
+        /**
+         * Adds a given value to the domain
+         */
+        void addToDomain(VarType aValue) {
+                mDomain->insert(aValue);
+        };
+
+        void clearDomain() {
+                mDomain->clear();
+        };
 protected:
         VarIdType mId; // Index of the variable
         Domain *mDomain; // Domain of the variable
@@ -61,26 +68,60 @@ protected:
 
 typedef std::map<VarIdType, Variable *> VariableMap;
 
+class CSPProblem;
+
 class Constraint {
 public:
         virtual ~Constraint() {};
 
         virtual double operator()(Assignment &a) const = 0;
         virtual Scope getScope() const = 0;
+
+        /**
+         * Check whether the constraint is soft or hard
+         */
+        virtual bool isSoft() const {
+                return false;
+        };
+
+        /**
+         * Check whether a given value aValue of variable aVarId has support in the variable
+         * domain, given an evidence (assignment of variables)
+         */
+        virtual bool hasSupport(VarIdType aVarId, VarType aValue, const CSPProblem &aProblem, const Assignment & aEvidence) = 0;
+
+        /**
+         * Adds probability aProbability to a given intervals of all constraints' variables
+         */
+        virtual void addIntervalProbability(DomainIntervalAssignment &aAssignment, double aProbability);
+
+        /**
+         * Initializes interval probabilities for all its variables
+         * We need the pointer to CSPProblem to know domain for each variable
+         */
+        virtual void initIntervalProbabilities(CSPProblem &aProblem, unsigned int aMaxIntervals);
+
+        /**
+         * Gets a list of intervals for the given variable
+         */
+        virtual DomainIntervalSet getIntervalProbabilities(VarIdType aVarId) {
+                return mIntervalProbabilities[aVarId];
+        };
 protected:
         Constraint() {};
+
+        std::map<VarIdType, DomainIntervalSet> mIntervalProbabilities;
+private:
+
+        void _initIntervalProbabilitiesInternal(Scope &aScope, const CSPProblem &aProblem, Assignment & aAssignment,
+                std::map<VarIdType, std::map<VarType, double> > &outVarProbabilities, double &outTotalProbability);
 };
 
 typedef std::vector<Constraint *> ConstraintList;
 
 class CSPProblem {
 public:
-        CSPProblem(VariableMap *v, ConstraintList *c):
-                mVariables(v), mConstraints(c) {
-                assert(v);
-                assert(c);
-        
-        };
+        CSPProblem(VariableMap *v, ConstraintList *c);
 
         ~CSPProblem();
 
@@ -101,6 +142,13 @@ public:
                 return (*mVariables)[aId];
         };
 
+        /**
+         * Non-const version of the previous method
+         */
+        Variable * getVariableById(VarIdType aId) {
+                return (*mVariables)[aId];
+        }
+
         const VariableMap * getVariables() {
                 return mVariables;
         };
@@ -109,10 +157,36 @@ public:
                 return mConstraints;
         };
 
+        /**
+         * Performs Generalized Arc Consistency on the current problem given some
+         * evidence.
+         *
+         * outRemovedValues is a map of values removed from domains of the variables (this is necessary
+         * to restore the original domains later)
+         *
+         * Returns false is some domain was made empty by the propagation
+         */
+        bool propagateConstraints(Assignment &aEvidence, std::map<VarIdType, Domain> & outRemovedValues);
+
+        bool propagateConstraints(Assignment &aEvidence, 
+                std::map<VarIdType, Domain> & outRemovedValues, VarIdType aChangedVariable);
+
+        /**
+         * Add previously removed values back to the domains of the variables
+         * (this has the opposite effect to the propagateConstraints method)
+         */
+        void restoreDomains(const std::map<VarIdType, Domain> &aRemovedValues);
+
 protected:
 
         VariableMap *mVariables;
         ConstraintList *mConstraints;
+
+        std::map<VarIdType, ConstraintList> mConstraintMap;
+private:
+        bool _propagateConstraintsInternal(Assignment &aEvidence, 
+                std::set<std::pair<Constraint *, VarIdType> > & aConstraintQueue,
+                std::map<VarIdType, Domain> & outRemovedValues);
 };
 
 class CSPSampler {
