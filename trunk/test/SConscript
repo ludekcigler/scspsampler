@@ -24,7 +24,7 @@ Import('env')
 celar_gibbs_node = env.Program(target = 'celar_gibbs', source = Split('celar_gibbs.cpp ../src/utils.cpp \
                                                     ../src/csp.cpp \
                                                     ../src/celar.cpp ../src/gibbs_sampler.cpp \
-                                                    ../src/optparse/optparse.cpp'))
+                                                    ../src/optparse/optparse.cpp ../src/domain_interval.cpp'))
 
 ijgp_test_node = env.Program(target = 'ijgp_test', source = Split('ijgp_test.cpp ../src/utils.cpp \
                                                     ../src/csp.cpp \
@@ -47,10 +47,13 @@ celar_gecode_node = env.Program(target = 'celar_gecode', source = Split('celar_g
                                                     ../src/utils.cpp ../src/csp.cpp ../src/celar.cpp \
                                                     ../src/optparse/optparse.cpp'))
 
+intervals_node = env.Program(target = 'intervals', source = Split('intervals.cpp ../src/domain_interval.cpp ../src/utils.cpp ../src/csp.cpp ../src/celar.cpp'))
+
 
 env.Alias("celar_gibbs", celar_gibbs_node)
 env.Alias("ijgp_test", ijgp_test_node)
 env.Alias("optparse", optparse_test_node)
 #env.Alias("celar_exact", celar_exact_node)
 env.Alias("celar_gecode", celar_gecode_node)
+env.Alias("intervals", intervals_node)
 

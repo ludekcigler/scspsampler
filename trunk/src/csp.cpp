@@ -22,8 +22,24 @@
 #include <assert.h>
 #include <iostream>
 
+#include <queue>
+
 #include "csp.h"
 #include "utils.h"
+
+CSPProblem::CSPProblem(VariableMap *v, ConstraintList *c):
+        mVariables(v), mConstraints(c) {
+        assert(v);
+        assert(c);
+
+        // Initialize the constraint map
+        for (ConstraintList::iterator constIt = mConstraints->begin(); constIt != mConstraints->end(); ++constIt) {
+                Scope s = (*constIt)->getScope();
+                for (Scope::const_iterator scopeIt = s.begin(); scopeIt != s.end(); ++scopeIt) {
+                        mConstraintMap[*scopeIt].push_back(*constIt);
+                }
+        }
+};
 
 CSPProblem::~CSPProblem() {
         for (ConstraintList::iterator constIt = mConstraints->begin(); constIt != mConstraints->end(); ++constIt) {
@@ -232,6 +248,237 @@ void CSPProblem::schematicMiniBucket(unsigned int aMaxBucketSize, const std::vec
 
         assert(futureArcPool.empty());
 
+}
+
+void Constraint::addIntervalProbability(DomainIntervalAssignment &aAssignment, double aProbability) {
+        Scope scope = getScope();
+
+        for (Scope::iterator scopeIt = scope.begin(); scopeIt != scope.end(); ++scopeIt) {
+                assert(aAssignment.find(*scopeIt) != aAssignment.end());
+
+                VarIdType varId = *scopeIt;
+                DomainIntervalSet & varIntervals = mIntervalProbabilities[varId];
+
+                DomainIntervalSet::const_iterator domIt = varIntervals.find(aAssignment[varId]);
+                assert(domIt != varIntervals.end());
+
+                DomainInterval oldInterval = *domIt;
+
+                varIntervals.erase(domIt);
+                varIntervals.insert(DomainInterval(oldInterval.lowerBound, oldInterval.upperBound,
+                                oldInterval.probability + aProbability));
+        }
+}
+
+void Constraint::initIntervalProbabilities(CSPProblem &aProblem, unsigned int aMaxIntervals) {
+        Scope scope = getScope();
+
+        std::map<VarIdType, std::map<VarType, double> > varProbabilities;
+        double totalProbability;
+        Assignment a;
+        
+        // First store probabilities for each of the variables in
+        // tables indexed by their values
+
+        // Generate all combinations of values for variables in the constraint scope
+        _initIntervalProbabilitiesInternal(scope, aProblem, a, varProbabilities, totalProbability);
+
+        // If the total probability is zero, the constraint cannot be satisfied, and if it is a hard
+        // constraint, we clear all domains
+        if (totalProbability <= 0.0 && !isSoft()) {
+                for (Scope::const_iterator scopeIt = scope.begin(); scopeIt != scope.end(); ++scopeIt) {
+                        Variable * var = aProblem.getVariableById(*scopeIt);
+                        var->clearDomain();
+                        std::map<VarType, double> & varProbTable = varProbabilities[*scopeIt];
+                        varProbTable.clear();
+                }
+        } else if (totalProbability <= 0.0 && isSoft()) {
+                // Re-initialize the probabilities to equal values
+                totalProbability = 1.0;
+
+                for (Scope::const_iterator scopeIt = scope.begin(); scopeIt != scope.end(); ++scopeIt) {
+                        const Variable * var = aProblem.getVariableById(*scopeIt);
+                        const Domain * domain = var->getDomain();
+
+                        std::map<VarType, double> & varProbTable = varProbabilities[*scopeIt];
+                        for (std::map<VarType, double>::iterator probIt = varProbTable.begin();
+                                probIt != varProbTable.end(); ++probIt) {
+
+                                probIt->second = 1.0 / domain->size();
+                        }
+                }
+        } 
+
+        // Now create intervals
+        for (Scope::const_iterator scopeIt = scope.begin(); scopeIt != scope.end(); ++scopeIt) {
+
+                std::map<VarType, double> & varProbTable = varProbabilities[*scopeIt];
+                for (std::map<VarType, double>::iterator probIt = varProbTable.begin();
+                        probIt != varProbTable.end(); ++probIt) {
+
+                        if (probIt->second > 0.0) {
+                                mIntervalProbabilities[*scopeIt].insert(
+                                                DomainInterval(probIt->first, probIt->first + 1, 
+                                                        probIt->second / totalProbability));
+                        }
+                }
+
+                // Join the intervals
+                mIntervalProbabilities[*scopeIt] = join_intervals(mIntervalProbabilities[*scopeIt], aMaxIntervals);
+        }
+}
+
+void Constraint::_initIntervalProbabilitiesInternal(Scope &aScope, const CSPProblem &aProblem, Assignment & aAssignment,
+                std::map<VarIdType, std::map<VarType, double> > &outVarProbabilities, double &outTotalProbability) {
+
+        if (aScope.empty()) {
+                double probability = (*this)(aAssignment);
+                outTotalProbability += probability;
+
+                Scope constraintScope = getScope();
+                for (Scope::const_iterator scopeIt = constraintScope.begin();
+                                scopeIt != constraintScope.end(); ++scopeIt) {
+
+                        VarIdType varId = *scopeIt;
+                        std::map<VarType, double> & varProbabilities = outVarProbabilities[varId];
+                        if (varProbabilities.find(aAssignment[varId]) == varProbabilities.end()) {
+                                varProbabilities[aAssignment[varId]] = probability;
+                        } else {
+                                varProbabilities[aAssignment[varId]] += probability;
+                        }
+                }
+        } else {
+                const Variable * var = aProblem.getVariableById(*(aScope.begin()));
+                aScope.erase(aScope.begin());
+                const Domain * domain = var->getDomain();
+                for (Domain::const_iterator domIt = domain->begin(); domIt != domain->end(); ++domIt) {
+                        aAssignment[var->getId()] = *domIt;
+
+                        _initIntervalProbabilitiesInternal(aScope, aProblem, aAssignment, outVarProbabilities,
+                                        outTotalProbability);
+
+                        aAssignment.erase(var->getId());
+                }
+
+                aScope.insert(var->getId());
+        }
+}
+
+bool CSPProblem::propagateConstraints(Assignment &aEvidence, std::map<VarIdType, Domain> & outRemovedValues) {
+        // Add all constraints into the queue
+        std::set<std::pair<Constraint *, VarIdType> > constraintQueue;
+
+        // Initialize the queue with all of the constraints
+        for (ConstraintList::iterator ctrIt = mConstraints->begin();
+                        ctrIt != mConstraints->end(); ++ctrIt) {
+
+                Scope s = (*ctrIt)->getScope();
+
+                for (Scope::const_iterator scopeIt = s.begin(); scopeIt != s.end(); ++scopeIt) {
+                        // Add the variable for revision only if it is not in the evidence
+                        if (aEvidence.find(*scopeIt) == aEvidence.end())
+                                constraintQueue.insert(std::make_pair(*ctrIt, *scopeIt));
+                }
+        }
+
+        return _propagateConstraintsInternal(aEvidence, constraintQueue, outRemovedValues);
+}
+
+/**
+ * This version of constraint propagation only starts propagating from constraints which affect given
+ * variable
+ */
+bool CSPProblem::propagateConstraints(Assignment &aEvidence, 
+                std::map<VarIdType, Domain> & outRemovedValues, VarIdType aChangedVariable) {
+
+        std::set<std::pair<Constraint *, VarIdType> > constraintQueue;
+
+        // Initialize the queue of constraints from the list of constraints which
+        // have the aChangedVariable in their scopes
+        for (ConstraintList::iterator ctrIt = mConstraintMap[aChangedVariable].begin();
+                        ctrIt != mConstraintMap[aChangedVariable].end(); ++ctrIt) {
+
+                Scope s = (*ctrIt)->getScope();
+                s.erase(aChangedVariable);
+
+                for (Scope::const_iterator scopeIt = s.begin(); scopeIt != s.end(); ++scopeIt) {
+                        // Add the variable for revision only if it is not in the evidence
+                        if (aEvidence.find(*scopeIt) == aEvidence.end())
+                                constraintQueue.insert(std::make_pair(*ctrIt, *scopeIt));
+                }
+        }
+
+        return _propagateConstraintsInternal(aEvidence, constraintQueue, outRemovedValues);
+}
+
+bool CSPProblem::_propagateConstraintsInternal(Assignment &aEvidence, 
+                std::set<std::pair<Constraint *, VarIdType> > & aConstraintQueue,
+                std::map<VarIdType, Domain> & outRemovedValues) {
+
+        while (!aConstraintQueue.empty()) {
+                std::set<std::pair<Constraint *, VarIdType> >::iterator queueIt = aConstraintQueue.begin();
+                aConstraintQueue.erase(queueIt);
+
+                bool domainChanged = false;
+
+                Constraint * c = queueIt->first;
+                VarIdType varId = queueIt->second;
+
+                const Domain *d = getVariableById(varId)->getDomain();
+
+                // Revise the selected constraint
+                Domain::const_iterator domIt = d->begin();
+                while (domIt != d->end()) {
+                        VarType value = *domIt;
+                        // Check support for the value, and if there is no support, remove that variable
+                        if (!c->hasSupport(varId, value, *this, aEvidence)) {
+                                domainChanged = true;
+
+                                // Remove the variable
+                                (*mVariables)[varId]->eraseFromDomain(value);
+                                outRemovedValues[varId].insert(value);
+
+                                domIt = d->lower_bound(value); // Restore the iterator (which was invalidated by the erase)
+                                continue;
+                        }
+                        ++domIt;
+                }
+
+                if (d->empty()) {
+                        // If the domain becomes empty, end the propagation with failure
+                        return false;
+                }
+
+
+                if (domainChanged) {
+                        // Add all constraints with the scope of the current variable to the queue
+                        for (ConstraintList::iterator ctrIt = mConstraintMap[varId].begin();
+                                        ctrIt != mConstraintMap[varId].end(); ++ctrIt) {
+                                Scope s = (*ctrIt)->getScope();
+                                s.erase(varId);
+                                
+                                for (Scope::iterator scopeIt = s.begin(); scopeIt != s.end(); ++scopeIt) {
+                                        if (aEvidence.find(*scopeIt) == aEvidence.end())
+                                                aConstraintQueue.insert(std::make_pair(*ctrIt, *scopeIt));
+
+                                }
+                        }
+                }
+        }
+        return true;
+}
+
+void CSPProblem::restoreDomains(const std::map<VarIdType, Domain> &aRemovedValues) {
+        for (std::map<VarIdType, Domain>::const_iterator valIt = aRemovedValues.begin();
+                        valIt != aRemovedValues.end(); ++valIt) {
+                VarIdType varId = valIt->first;
+                const Domain & domain = valIt->second;
+                Variable * var = (*mVariables)[varId];
+
+                for (Domain::const_iterator domIt = domain.begin(); domIt != domain.end(); ++domIt) {
+                        var->addToDomain(*domIt);
+                }
+        }
 }
 
 void assignment_pprint(const Assignment & a) {

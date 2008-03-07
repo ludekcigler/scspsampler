@@ -49,6 +49,12 @@ public:
                 return s;
         }
 
+        virtual bool isSoft() const {
+                return mWeight > 0;
+        }
+
+        virtual bool hasSupport(VarIdType aVarId, VarType aValue, const CSPProblem &aProblem, const Assignment &aEvidence);
+
         static std::vector<double> COSTS;
 protected:
         VarIdType mVar1, mVar2;
@@ -69,6 +75,12 @@ public:
                 s.insert(mVar);
                 return s;
         }
+        
+        virtual bool isSoft() const {
+                return mWeight > 0;
+        }
+
+        virtual bool hasSupport(VarIdType aVarId, VarType aValue, const CSPProblem &aProblem, const Assignment &aEvidence);
 
         static std::vector<double> COSTS;
 protected:
