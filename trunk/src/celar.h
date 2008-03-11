@@ -47,11 +47,11 @@ public:
                 s.insert(mVar1);
                 s.insert(mVar2);
                 return s;
-        }
+        };
 
         virtual bool isSoft() const {
                 return mWeight > 0;
-        }
+        };
 
         virtual bool hasSupport(VarIdType aVarId, VarType aValue, const CSPProblem &aProblem, const Assignment &aEvidence);
 
@@ -74,11 +74,11 @@ public:
                 Scope s;
                 s.insert(mVar);
                 return s;
-        }
+        };
         
         virtual bool isSoft() const {
                 return mWeight > 0;
-        }
+        };
 
         virtual bool hasSupport(VarIdType aVarId, VarType aValue, const CSPProblem &aProblem, const Assignment &aEvidence);
 

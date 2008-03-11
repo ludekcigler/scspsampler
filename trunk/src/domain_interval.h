@@ -8,10 +8,10 @@
 
 struct DomainInterval {
         DomainInterval():
-                lowerBound(0), upperBound(0), probability(0.0) {};
+                lowerBound(0), upperBound(0) {};
 
-        DomainInterval(VarType aLowerBound, VarType aUpperBound, double aProbability):
-                lowerBound(aLowerBound), upperBound(aUpperBound), probability(aProbability) {};
+        DomainInterval(VarType aLowerBound, VarType aUpperBound):
+                lowerBound(aLowerBound), upperBound(aUpperBound) {};
 
         /**
          * Compare upper bounds of the intervals.
@@ -23,6 +23,10 @@ struct DomainInterval {
                 return upperBound < aInterval.upperBound;
         };
 
+        bool operator<=(const DomainInterval & aInterval) const {
+                return upperBound <= aInterval.upperBound;
+        };
+
         bool operator==(const DomainInterval & aInterval) const {
                 return (lowerBound == aInterval.lowerBound) && (upperBound == aInterval.upperBound);
         };
@@ -30,24 +34,27 @@ struct DomainInterval {
         std::string pprint() const;
 
         VarType lowerBound, upperBound;
-        double probability;
 };
 
-typedef std::set<DomainInterval> DomainIntervalSet;
+typedef std::map<DomainInterval, double> DomainIntervalMap;
 
 typedef std::map<VarIdType, DomainInterval> DomainIntervalAssignment;
+
+typedef std::map<DomainInterval, double> IntervalProbabilityDistribution;
 
 /**
  * Merges two intervals together, mixing their probabilities
  */
-DomainIntervalSet merge_intervals(const DomainIntervalSet & aList1, const DomainIntervalSet & aList2);
+DomainIntervalMap merge_intervals(const DomainIntervalMap & aList1, const DomainIntervalMap & aList2);
 
-DomainIntervalSet normalize_intervals(const DomainIntervalSet & aList);
+DomainIntervalMap normalize_intervals(const DomainIntervalMap & aList);
 
-DomainIntervalSet join_intervals(const DomainIntervalSet & aList, unsigned int aMaxDomainIntervals);
+DomainIntervalMap join_intervals(const DomainIntervalMap & aList, unsigned int aMaxDomainIntervals);
 
-void interval_list_pprint(const DomainIntervalSet & aList);
+std::string interval_list_pprint(const DomainIntervalMap & aList);
 
-DomainIntervalSet adjust_intervals_to_domain(const DomainIntervalSet & aList, const Domain & aDomain);
+DomainIntervalMap adjust_intervals_to_domain(const DomainIntervalMap & aList, const Domain & aDomain);
+
+DomainIntervalMap uniform_intervals_for_domain(const Domain & aDomain, unsigned int aMaxDomainIntervals);
 
 #endif // DOMAIN_INTERVAL_H_

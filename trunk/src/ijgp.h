@@ -29,63 +29,9 @@
 #include <algorithm>
 
 #include "csp.h"
+#include "graph.h"
 
 #define MAX_PROPAGATION_ITERATIONS 10
-
-class Vertex;
-
-class Edge;
-
-class Vertex {
-public:
-        Vertex(VarIdType id): mId(id) {};
-
-        VarIdType getId() const {
-                return mId;
-        }
-
-        void addNeighbour(Vertex *v) {
-                assert(v);
-
-                if (find(neighbours.begin(), neighbours.end(), v) == neighbours.end() &&
-                                v->getId() != mId) {
-                        neighbours.push_back(v);
-                }
-        }
-
-        void removeNeighbour(Vertex *v) {
-                assert(v);
-
-                std::vector<Vertex *>::iterator f = find(neighbours.begin(), neighbours.end(), v);
-                if (f != neighbours.end()) {
-                        neighbours.erase(f);
-                }
-        }
-
-        std::vector<Vertex *> neighbours;
-protected:
-        VarIdType mId;
-};
-
-typedef std::map<VarIdType, Vertex *> VertexDict;
-
-class Graph {
-public:
-        Graph(VertexDict * vertices): mVertices(vertices) {};
-
-        /**
-         * Create primal graph of the CSP
-         */
-        static Graph * createCSPPrimalGraph(CSPProblem * p);
-
-        /**
-         * Heuristically computes min-induced-width ordering of a given graph
-         */
-        std::vector<VarIdType> minInducedWidthOrdering();
-
-private:
-        VertexDict *mVertices;
-};
 
 class JoinGraphEdge;
 

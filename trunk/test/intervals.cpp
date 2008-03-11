@@ -1,24 +1,24 @@
 #include <iostream>
 #include "../src/domain_interval.h"
 
-DomainIntervalSet create_interval1() {
-        DomainIntervalSet result;
-        result.insert(DomainInterval(0, 10, 0.15));
-        result.insert(DomainInterval(15, 35, 0.20));
-        result.insert(DomainInterval(35, 80, 0.20));
-        result.insert(DomainInterval(85, 100, 0.10));
-        result.insert(DomainInterval(200, 201, 0.35));
+DomainIntervalMap create_interval1() {
+        DomainIntervalMap result;
+        result[DomainInterval(0, 10)] = 0.15;
+        result[DomainInterval(15, 35)] = 0.20;
+        result[DomainInterval(35, 80)] = 0.20;
+        result[DomainInterval(85, 100)] = 0.10;
+        result[DomainInterval(200, 201)] = 0.35;
 
         return result;
 }
 
-DomainIntervalSet create_interval2() {
-        DomainIntervalSet result;
-        result.insert(DomainInterval(2, 5, 0.5));
-        result.insert(DomainInterval(15, 20, 0.1));
-        result.insert(DomainInterval(25, 35, 0.20));
-        result.insert(DomainInterval(85, 100, 0.1));
-        result.insert(DomainInterval(200, 202, 0.1));
+DomainIntervalMap create_interval2() {
+        DomainIntervalMap result;
+        result[DomainInterval(2, 5)] = 0.5;
+        result[DomainInterval(15, 20)] = 0.1;
+        result[DomainInterval(25, 35)] = 0.20;
+        result[DomainInterval(85, 100)] = 0.1;
+        result[DomainInterval(200, 202)] = 0.1;
 
         return result;
 }
@@ -47,40 +47,34 @@ Domain create_domain() {
 }
 
 int main(int argc, char ** argv) {
-        DomainIntervalSet il1 = create_interval1();
-        DomainIntervalSet il2 = create_interval2();
+        DomainIntervalMap il1 = create_interval1();
+        DomainIntervalMap il2 = create_interval2();
         Domain d = create_domain();
 
-        std::cout << "IL 1:\t\t";
-        interval_list_pprint(il1);
-        std::cout << "IL 2:\t\t";
-        interval_list_pprint(il2);
+        std::cout << "IL 1:\t\t" << interval_list_pprint(il1) << std::endl;
+        std::cout << "IL 2:\t\t" << interval_list_pprint(il2) << std::endl;
 
-        DomainIntervalSet merger = merge_intervals(il1, il2);
+        DomainIntervalMap merger = merge_intervals(il1, il2);
 
-        std::cout << "Merged:\t\t";
-        interval_list_pprint(merger);
+        std::cout << "Merged:\t\t" << interval_list_pprint(merger) << std::endl;
 
         merger = normalize_intervals(merger);
-        std::cout << "Normalized:\t";
-        interval_list_pprint(merger);
+        std::cout << "Normalized:\t" << interval_list_pprint(merger) << std::endl;
 
-        DomainIntervalSet joined = join_intervals(merger, 18);
-        std::cout << "Joined:\t\t";
-        interval_list_pprint(joined);
+        DomainIntervalMap joined = join_intervals(merger, 18);
+        std::cout << "Joined:\t\t" << interval_list_pprint(joined) << std::endl;
 
-        DomainIntervalSet adjusted = adjust_intervals_to_domain(joined, d);
+        DomainIntervalMap adjusted = adjust_intervals_to_domain(joined, d);
         adjusted = normalize_intervals(adjusted);
-        std::cout << "Adjusted:\t";
-        interval_list_pprint(adjusted);
+        std::cout << "Adjusted:\t" << interval_list_pprint(adjusted) << std::endl;
 
         Domain::iterator domIt = d.begin();
         --domIt;
         std::cout << "DomIt " << (domIt == d.begin()) << std::endl;
 
-        DomainIntervalSet ds;
-        ds.insert(DomainInterval(0, 10, 0.3));
-        ds.insert(DomainInterval(0, 10, 0.5));
-        std::cout << "Find: " << (ds.find(DomainInterval(0, 10, 0.5)) != ds.end()) << std::endl;
-        interval_list_pprint(ds);
+        DomainIntervalMap ds;
+        ds[DomainInterval(0, 10)] = 0.3;
+        ds[DomainInterval(0, 10)] = 0.5;
+        std::cout << "Find: " << (ds.find(DomainInterval(0, 10)) != ds.end()) << std::endl;
+        std::cout << interval_list_pprint(ds) << std::endl;
 }

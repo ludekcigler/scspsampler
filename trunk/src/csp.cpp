@@ -21,6 +21,7 @@
 
 #include <assert.h>
 #include <iostream>
+#include <sstream>
 
 #include <queue>
 
@@ -257,20 +258,16 @@ void Constraint::addIntervalProbability(DomainIntervalAssignment &aAssignment, d
                 assert(aAssignment.find(*scopeIt) != aAssignment.end());
 
                 VarIdType varId = *scopeIt;
-                DomainIntervalSet & varIntervals = mIntervalProbabilities[varId];
+                DomainIntervalMap & varIntervals = mDomainIntervals[varId];
 
-                DomainIntervalSet::const_iterator domIt = varIntervals.find(aAssignment[varId]);
+                DomainIntervalMap::iterator domIt = varIntervals.find(aAssignment[varId]);
                 assert(domIt != varIntervals.end());
 
-                DomainInterval oldInterval = *domIt;
-
-                varIntervals.erase(domIt);
-                varIntervals.insert(DomainInterval(oldInterval.lowerBound, oldInterval.upperBound,
-                                oldInterval.probability + aProbability));
+                domIt->second += aProbability;
         }
 }
 
-void Constraint::initIntervalProbabilities(CSPProblem &aProblem, unsigned int aMaxIntervals) {
+void Constraint::initDomainIntervals(CSPProblem &aProblem, unsigned int aMaxIntervals) {
         Scope scope = getScope();
 
         std::map<VarIdType, std::map<VarType, double> > varProbabilities;
@@ -281,7 +278,7 @@ void Constraint::initIntervalProbabilities(CSPProblem &aProblem, unsigned int aM
         // tables indexed by their values
 
         // Generate all combinations of values for variables in the constraint scope
-        _initIntervalProbabilitiesInternal(scope, aProblem, a, varProbabilities, totalProbability);
+        _initDomainIntervalsInternal(scope, aProblem, a, varProbabilities, totalProbability);
 
         // If the total probability is zero, the constraint cannot be satisfied, and if it is a hard
         // constraint, we clear all domains
@@ -317,18 +314,17 @@ void Constraint::initIntervalProbabilities(CSPProblem &aProblem, unsigned int aM
                         probIt != varProbTable.end(); ++probIt) {
 
                         if (probIt->second > 0.0) {
-                                mIntervalProbabilities[*scopeIt].insert(
-                                                DomainInterval(probIt->first, probIt->first + 1, 
-                                                        probIt->second / totalProbability));
+                                mDomainIntervals[*scopeIt][DomainInterval(probIt->first, probIt->first + 1)] = 
+                                        probIt->second / totalProbability;
                         }
                 }
 
                 // Join the intervals
-                mIntervalProbabilities[*scopeIt] = join_intervals(mIntervalProbabilities[*scopeIt], aMaxIntervals);
+                mDomainIntervals[*scopeIt] = join_intervals(mDomainIntervals[*scopeIt], aMaxIntervals);
         }
 }
 
-void Constraint::_initIntervalProbabilitiesInternal(Scope &aScope, const CSPProblem &aProblem, Assignment & aAssignment,
+void Constraint::_initDomainIntervalsInternal(Scope &aScope, const CSPProblem &aProblem, Assignment & aAssignment,
                 std::map<VarIdType, std::map<VarType, double> > &outVarProbabilities, double &outTotalProbability) {
 
         if (aScope.empty()) {
@@ -354,7 +350,7 @@ void Constraint::_initIntervalProbabilitiesInternal(Scope &aScope, const CSPProb
                 for (Domain::const_iterator domIt = domain->begin(); domIt != domain->end(); ++domIt) {
                         aAssignment[var->getId()] = *domIt;
 
-                        _initIntervalProbabilitiesInternal(aScope, aProblem, aAssignment, outVarProbabilities,
+                        _initDomainIntervalsInternal(aScope, aProblem, aAssignment, outVarProbabilities,
                                         outTotalProbability);
 
                         aAssignment.erase(var->getId());
@@ -481,22 +477,67 @@ void CSPProblem::restoreDomains(const std::map<VarIdType, Domain> &aRemovedValue
         }
 }
 
-void assignment_pprint(const Assignment & a) {
-        for (Assignment::const_iterator it = a.begin(); it != a.end(); ++it) {
-                if (it != a.begin()) {
-                        std::cout << ", ";
-                }
-                std::cout << "" << it->first << ": " << it->second;
+unsigned int Variable::getNumValuesInDomainRange(VarType aLowerBound, VarType aUpperBound) const {
+        Domain::const_iterator domItLB = mDomain->lower_bound(aLowerBound);
+        Domain::const_iterator domItUB = mDomain->lower_bound(aUpperBound);
+
+        unsigned int numValues = 0;
+        while (domItLB != domItUB) {
+                ++numValues;
+                ++domItLB;
+        };
+        return numValues;
+}
+
+void Variable::restrictDomainToValue(VarType aValue, Domain & outRemovedValues) {
+        outRemovedValues = *mDomain;
+        mDomain->clear();
+        mDomain->insert(aValue);
+}
+
+void Variable::restoreRestrictedDomain(const Domain & aRemovedValues) {
+        for (Domain::const_iterator domIt = aRemovedValues.begin(); domIt != aRemovedValues.end(); ++domIt) {
+                mDomain->insert(*domIt);
         }
 }
 
-void scope_pprint(const Scope & a) {
-        std::cout << "{";
+unsigned int CSPProblem::getNumValuesInDomainRange(VarIdType aVarId, VarType aLowerBound, VarType aUpperBound) const {
+        return (*mVariables)[aVarId]->getNumValuesInDomainRange(aLowerBound, aUpperBound);
+}
+
+std::string assignment_pprint(const Assignment & a) {
+        std::ostringstream out;
+        for (Assignment::const_iterator it = a.begin(); it != a.end(); ++it) {
+                if (it != a.begin()) {
+                        out << ", ";
+                }
+                out << "" << it->first << ": " << it->second;
+        }
+        return out.str();
+}
+
+std::string scope_pprint(const Scope & a) {
+        std::ostringstream out;
+        out << "{";
         for (Scope::const_iterator it = a.begin(); it != a.end(); ++it) {
                 if (it != a.begin()) {
-                        std::cout << ", ";
+                        out << ", ";
                 }
-                std::cout << *it;
+                out << *it;
         }
-        std::cout << "} ";
+        out << "} ";
+        return out.str();
+}
+
+std::string probability_distribution_pprint(const ProbabilityDistribution & aDist) {
+        std::ostringstream out;
+        out << "{";
+        for (ProbabilityDistribution::const_iterator it = aDist.begin(); it != aDist.end(); ++it) {
+                if (it != aDist.begin()) {
+                        out << ", ";
+                }
+                out << it->first << ": " << it->second;
+        }
+        out << "} ";
+        return out.str();
 }

@@ -61,6 +61,12 @@ public:
         void clearDomain() {
                 mDomain->clear();
         };
+
+        void restrictDomainToValue(VarType, Domain & outRemovedValues);
+
+        void restoreRestrictedDomain(const Domain & aRemovedValues);
+
+        unsigned int getNumValuesInDomainRange(VarType aLowerBound, VarType aUpperBound) const;
 protected:
         VarIdType mId; // Index of the variable
         Domain *mDomain; // Domain of the variable
@@ -88,7 +94,9 @@ public:
          * Check whether a given value aValue of variable aVarId has support in the variable
          * domain, given an evidence (assignment of variables)
          */
-        virtual bool hasSupport(VarIdType aVarId, VarType aValue, const CSPProblem &aProblem, const Assignment & aEvidence) = 0;
+        virtual bool hasSupport(VarIdType aVarId, VarType aValue, const CSPProblem &aProblem, const Assignment & aEvidence) {
+                return true;
+        }
 
         /**
          * Adds probability aProbability to a given intervals of all constraints' variables
@@ -99,21 +107,22 @@ public:
          * Initializes interval probabilities for all its variables
          * We need the pointer to CSPProblem to know domain for each variable
          */
-        virtual void initIntervalProbabilities(CSPProblem &aProblem, unsigned int aMaxIntervals);
+        virtual void initDomainIntervals(CSPProblem &aProblem, unsigned int aMaxIntervals);
 
         /**
          * Gets a list of intervals for the given variable
          */
-        virtual DomainIntervalSet getIntervalProbabilities(VarIdType aVarId) {
-                return mIntervalProbabilities[aVarId];
+        virtual DomainIntervalMap getDomainIntervals(VarIdType aVarId) {
+                return mDomainIntervals[aVarId];
         };
+
 protected:
         Constraint() {};
 
-        std::map<VarIdType, DomainIntervalSet> mIntervalProbabilities;
+        std::map<VarIdType, DomainIntervalMap> mDomainIntervals;
 private:
 
-        void _initIntervalProbabilitiesInternal(Scope &aScope, const CSPProblem &aProblem, Assignment & aAssignment,
+        void _initDomainIntervalsInternal(Scope &aScope, const CSPProblem &aProblem, Assignment & aAssignment,
                 std::map<VarIdType, std::map<VarType, double> > &outVarProbabilities, double &outTotalProbability);
 };
 
@@ -177,6 +186,11 @@ public:
          */
         void restoreDomains(const std::map<VarIdType, Domain> &aRemovedValues);
 
+        /**
+         * Returns number of values in the domain of aVarId in the range <aLowerBound, aUpperBound)
+         */
+        unsigned int getNumValuesInDomainRange(VarIdType aVarId, VarType aLowerBound, VarType aUpperBound) const;
+
 protected:
 
         VariableMap *mVariables;
@@ -199,14 +213,17 @@ public:
 
         /**
          * Gets new sample from the solution space
+         * Returns false if no solution was found
          */
-        virtual const Assignment getSample() = 0;
+        virtual bool getSample(Assignment & aAssignment) = 0;
 protected:
         CSPProblem * mProblem;
 };
 
-void assignment_pprint(const Assignment & a);
+std::string assignment_pprint(const Assignment & a);
 
-void scope_pprint(const Scope & aScope);
+std::string scope_pprint(const Scope & aScope);
+
+std::string probability_distribution_pprint(const ProbabilityDistribution & aDist);
 
 #endif // CSP_H_
