@@ -25,7 +25,7 @@
 #include "optparse/optparse.h"
 
 #include "csp.h"
-#include "celar.h"
+#include "intel.h"
 #include "ijgp.h"
 #include "gibbs_sampler.h"
 #include "ijgp_sampler.h"
@@ -42,7 +42,7 @@ int main(int argc, char ** argv) {
 
         parser.addOption(/*aShortName*/ 0, /*aLongName*/ "dataset", /*aAlias*/ "dataset",
                         /*aHasArg*/ true, /*aSpecifiedByDefault*/ true,
-                        /*aArg*/ "/home/luigi/Matfyz/Diplomka/scspsampler/trunk/data/ludek/02/",
+                        /*aArg*/ "/home/luigi/Matfyz/Diplomka/scspsampler/trunk/data/intel/02/",
                         /*aHelpText*/ "Path to CELAR dataset directory");
 
         parser.addOption(/*aShortName*/ 0, /*aLongName*/ "ijgpIter", /*aAlias*/ "ijgpIter",
@@ -73,6 +73,10 @@ int main(int argc, char ** argv) {
                         /*aHasArg*/ true, /*aSpecifiedByDefault*/ true,
                         /*aArg*/ "2", /*aHelpText*/ "Maximum number of values from a single interval (for interval-IJGP)");
 
+        parser.addOption(/*aShortName*/ 0, /*aLongName*/ "intelModelType", /*aAlias*/ "intelModelType",
+                        /*aHasArg*/ true, /*aSpecifiedByDefault*/ true,
+                        /*aArg*/ "naive", /*aHelpText*/ "Intel model type -- naive (4-ary constraints) or extra-vars (extra variables, 3-ary constraints");
+
         try {
                 parser.parseOptions();
         } catch (const OptionNotRecognized & e) {
@@ -88,11 +92,17 @@ int main(int argc, char ** argv) {
 
         // Load info about CSP problem
         std::string dataDir = parser.getOptionArg("dataset");
-        celar_load_costs((dataDir + "/costs.txt").c_str());
-        ConstraintList * c = celar_load_constraints((dataDir + "/ctr.txt").c_str());
-        std::vector<Domain> * d = celar_load_domains((dataDir + "/dom.txt").c_str());
+        std::string modelType = parser.getOptionArg("intelModelType");
+        ConstraintList * c;
+        if (modelType == "naive") {
+                c = intel_load_interval_inequality_constraints((dataDir + "/ctr.txt").c_str());
+        } else {
+                c = intel_load_constraints((dataDir + "/ctr.txt").c_str());
+        }
+
+        std::vector<Domain> * d = intel_load_domains((dataDir + "/dom.txt").c_str());
         VariableMap * v = new VariableMap();
-        celar_load_variables((dataDir + "/var.txt").c_str(), d, v, c);
+        intel_load_variables((dataDir + "/var.txt").c_str(), d, v, c);
 
         CSPProblem * p = new CSPProblem(v, c);
 
@@ -104,6 +114,7 @@ int main(int argc, char ** argv) {
         std::cout << "sampler:\t" << samplerId << std::endl;
         std::cout << "dataset:\t" << dataDir << std::endl;
         std::cout << "numSamples:\t" << numSamples << std::endl;
+        std::cout << "intelModelType:\t" << modelType << std::endl;
 
         if (samplerId == "ijgp") {
                 int miniBucketSize = parseArg<int>(parser.getOptionArg("bucketSize"));
@@ -153,4 +164,5 @@ int main(int argc, char ** argv) {
 
         return EXIT_SUCCESS;
 }
+
 

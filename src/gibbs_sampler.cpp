@@ -33,7 +33,7 @@ GibbsSampler::GibbsSampler(CSPProblem * p, unsigned int burn_in):
 
 GibbsSampler::~GibbsSampler() {}
 
-const Assignment GibbsSampler::getSample() {
+bool GibbsSampler::getSample(Assignment & aAssignment) {
         if (mInitialized) {
                 modifySampleInternal();
         } else {
@@ -47,7 +47,8 @@ const Assignment GibbsSampler::getSample() {
                 mInitialized = true;
         }
         
-        return mSample;
+        aAssignment = mSample;
+        return true;
 }
 
 void GibbsSampler::initSampleInternal() {

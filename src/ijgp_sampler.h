@@ -31,12 +31,15 @@ public:
                         unsigned int aMaxIJGPIterations);
         ~IJGPSampler();
         
-        virtual const Assignment getSample();
+        virtual bool getSample(Assignment & aAssignment);
 private:
         /**
          * Sample from given distribution for a given variable
          */
         VarType _sampleFromDistribution(Variable * aVariable, const ProbabilityDistribution & aDistribution);
+
+        bool _getSampleInternal(Assignment & aEvidence, VariableMap::const_iterator aVarIterator,
+                VarIdType aLastChangedVariable = 0);
 
         JoinGraph * mJoinGraph;
         unsigned int mMaxBucketSize;

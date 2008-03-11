@@ -56,95 +56,6 @@ JoinGraph::~JoinGraph() {
         }
 }
 
-Graph * Graph::createCSPPrimalGraph(CSPProblem * p) {
-        std::map<VarIdType, Vertex *> *vertices = new std::map<VarIdType, Vertex *>();
-
-        for (VariableMap::const_iterator varIt = p->getVariables()->begin(); varIt != p->getVariables()->end(); ++varIt) {
-                // Create vertex for each variable
-                Vertex * v = new Vertex(varIt->first);
-                (*vertices)[varIt->first] = v;
-        }
-
-        for (ConstraintList::const_iterator ctrIt = p->getConstraints()->begin(); ctrIt != p->getConstraints()->end(); ++ctrIt) {
-                // Add an edge for each constraint
-                Scope s = (*ctrIt)->getScope();
-
-                for (Scope::iterator scIt1 = s.begin(); scIt1 != s.end(); ++scIt1) {
-                        Vertex * v1 = (*vertices)[*scIt1];
-                        Scope::iterator scIt2 = scIt1;
-                        ++scIt2;
-                        for (; scIt2 != s.end(); ++scIt2) {
-                                Vertex * v2 = (*vertices)[*scIt2];
-                                v1->addNeighbour(v2);
-                                v2->addNeighbour(v1);
-                        }
-                }
-        }
-
-        Graph * g = new Graph(vertices);
-
-        return g;
-}
-
-std::vector<VarIdType> Graph::minInducedWidthOrdering() {
-
-        std::map<VarIdType, Vertex *> vertices;
-
-        // Copy vertices 
-        for (VertexDict::iterator vIt = this->mVertices->begin(); vIt != this->mVertices->end(); ++vIt) {
-                Vertex *v = new Vertex(*(vIt->second));
-                vertices[v->getId()] = v;
-        }
-
-        // Fix the neighbouring links
-        for (std::map<VarIdType, Vertex *>::iterator vIt = vertices.begin(); vIt != vertices.end(); ++vIt) {
-                for (std::vector<Vertex *>::iterator nIt = vIt->second->neighbours.begin();
-                                nIt != vIt->second->neighbours.end(); ++nIt) {
-
-                        *nIt = vertices[(*nIt)->getId()];
-                }
-        }
-
-        std::vector<VarIdType> ordering(vertices.size());
-        for (int i = ordering.size() - 1; i >= 0; --i) {
-                // Find a node with the smallest degree
-
-                size_t minDegree = vertices.size() + 1;
-                Vertex * minVertex;
-                for (std::map<VarIdType, Vertex *>::iterator vIt = vertices.begin(); vIt != vertices.end(); ++vIt) {
-                        if (vIt->second->neighbours.size() < minDegree) {
-                                minDegree = vIt->second->neighbours.size();
-                                minVertex = vIt->second;
-                        }
-                }
-
-                // Store the found vertex
-                ordering[i] = minVertex->getId();
-
-                // Connect the neighbours of the found vertex
-                for (std::vector<Vertex *>::iterator nIt1 = minVertex->neighbours.begin();
-                                nIt1 != minVertex->neighbours.end(); ++nIt1) {
-
-                        for (std::vector<Vertex *>::iterator nIt2 = (*nIt1)->neighbours.begin();
-                                        nIt2 != (*nIt1)->neighbours.end(); ++nIt2) {
-
-                                        if (*nIt2 == minVertex)
-                                                continue;
-
-                                        (*nIt1)->addNeighbour(*nIt2);
-                        }
-
-                        (*nIt1)->removeNeighbour(minVertex);
-                }
-
-                vertices.erase(minVertex->getId());
-
-                delete minVertex;
-        }
-
-        return ordering;
-}
-
 JoinGraph * JoinGraph::createJoinGraph(CSPProblem * aProblem, unsigned int aMaxBucketSize) {
         std::vector<Bucket> miniBuckets;
         std::map<Scope, Scope> outsideBucketArcs;
@@ -169,7 +80,7 @@ JoinGraph * JoinGraph::createJoinGraph(CSPProblem * aProblem, unsigned int aMaxB
 #endif
 
         JoinGraph * joinGraph = new JoinGraph();
-        // Create join-graph node for every 
+        // Create join-graph node for every mini-bucket
         for (size_t i = 0; i < miniBuckets.size(); ++i) {
                 for (std::vector<Scope>::iterator mbIt = miniBuckets[i].begin(); mbIt != miniBuckets[i].end(); ++mbIt) {
                         JoinGraphNode * node = new JoinGraphNode(*mbIt);
@@ -490,7 +401,10 @@ double JoinGraphMessage::operator()(Assignment &a) const {
         
         std::map<std::vector<VarType>, double>::const_iterator pIt = mProbabilityTable.find(scopeAssignment);
 
-        assert(pIt != mProbabilityTable.end());
+        //std::cout << "Scope assignment " << assignment_pprint(a) << std::endl;
+        if (pIt == mProbabilityTable.end()) {
+                return 0.0;
+        }
 
         return pIt->second;
 }
@@ -618,7 +532,7 @@ void JoinGraph::iterativePropagation(CSPProblem * aProblem, Assignment & aEviden
         }
 
         std::cout << " ";
-        assignment_pprint(aEvidence);
+        std::cout << assignment_pprint(aEvidence);
         std::cout << std::endl;
 }
 

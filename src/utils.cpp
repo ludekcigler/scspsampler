@@ -20,6 +20,7 @@
  */
 
 #include <assert.h>
+#include <iostream>
 
 #include "csp.h"
 #include "utils.h"
@@ -32,6 +33,33 @@ VarType random_select(const Domain *d) {
         unsigned int selectedIndex = (unsigned int)(d->size() * (rand() / (RAND_MAX + 1.0)));
         unsigned int domainCounter = 0;
         for (Domain::const_iterator domIt = d->begin(); domIt != d->end(); ++domIt, ++domainCounter) {
+                if (selectedIndex == domainCounter)
+                        return (*domIt);
+        }
+
+        assert(false);
+}
+
+VarType random_select(const Domain *aDomain, VarType aLowerBound, VarType aUpperBound) {
+        assert(aDomain);
+        Domain::const_iterator aBegin = aDomain->lower_bound(aLowerBound);
+        Domain::const_iterator aEnd = aDomain->lower_bound(aUpperBound);
+
+        unsigned int domainSize = 0;
+        for (Domain::const_iterator domIt = aBegin; domIt != aEnd; ++domIt) {
+                ++domainSize;
+        }
+        
+        /*
+        std::cout << "Random select" << std::endl;
+        std::cout << "\tDomain size " << domainSize << std::endl;
+        std::cout << "\tLower bound " << aLowerBound << ", " << ((aBegin != aDomain->end()) ? *aBegin : -1) << std::endl;
+        std::cout << "\tUpper bound " << aUpperBound << ", " << ((aEnd != aDomain->end()) ? *aEnd : -1) << std::endl;
+        */
+
+        unsigned int selectedIndex = (unsigned int)(domainSize * (rand() / (RAND_MAX + 1.0)));
+        unsigned int domainCounter = 0;
+        for (Domain::const_iterator domIt = aBegin; domIt != aEnd; ++domIt, ++domainCounter) {
                 if (selectedIndex == domainCounter)
                         return (*domIt);
         }

@@ -27,7 +27,7 @@ public:
         GibbsSampler(CSPProblem * p, unsigned int burn_in);
         ~GibbsSampler();
         
-        virtual const Assignment getSample();
+        virtual bool getSample(Assignment & aAssignment);
 
 private:
         void initSampleInternal();

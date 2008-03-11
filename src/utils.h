@@ -24,6 +24,8 @@
 
 VarType random_select(const Domain *d);
 
+VarType random_select(const Domain *aDomain, VarType aLowerBound, VarType aUpperBound);
+
 void tokenize(const std::string& str, std::vector<std::string>& tokens, const std::string& delimiters = " ");
 
 template<class T> T parseArg(const std::string & aArg) {

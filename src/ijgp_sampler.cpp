@@ -38,30 +38,70 @@ IJGPSampler::~IJGPSampler() {
         delete mJoinGraph;
 }
 
-const Assignment IJGPSampler::getSample() {
+bool IJGPSampler::getSample(Assignment & aAssignment) {
         mJoinGraph->purgeMessages();
-        Assignment evidence;
+        aAssignment = Assignment();
 
-        for (VariableMap::const_iterator varIt = mProblem->getVariables()->begin();
-                        varIt != mProblem->getVariables()->end(); ++varIt) {
+        return _getSampleInternal(aAssignment, mProblem->getVariables()->begin());
+}
 
-                Variable * targetVar = varIt->second;
+bool IJGPSampler::_getSampleInternal(Assignment & aEvidence, VariableMap::const_iterator aVarIterator,
+                VarIdType aLastChangedVariable) {
 
-                // If we are handling the first variable or with mIJGPProbability probability,
-                // run IJGP
-                if (evidence.empty() ||
-                                ((1.0*rand()) / RAND_MAX) <= mIJGPProbability) {
-                        mJoinGraph->iterativePropagation(mProblem, evidence, mMaxIJGPIterations);
+        if (aVarIterator == mProblem->getVariables()->end()) {
+                return true; // We have reached the last variable
+        } else {
+                std::map<VarIdType, Domain> removedValues;
+                bool domainsNotEmpty;
+
+                if (aEvidence.empty()) {
+                        // If the evidence is empty, there has not been any variable changed yet
+                        domainsNotEmpty = mProblem->propagateConstraints(aEvidence, removedValues);
+                } else {
+                        domainsNotEmpty = mProblem->propagateConstraints(aEvidence, removedValues, aLastChangedVariable);
                 }
 
-                const ProbabilityDistribution dist = mJoinGraph->conditionalDistribution(mProblem,
-                                targetVar, evidence);
+                if (domainsNotEmpty) {
+                        // Select variable, and its value
+                        Variable * targetVar = aVarIterator->second;
+                        mJoinGraph->iterativePropagation(mProblem, aEvidence, mMaxIJGPIterations);
 
-                evidence[targetVar->getId()] = _sampleFromDistribution(targetVar, dist);
+                        ProbabilityDistribution dist = mJoinGraph->conditionalDistribution(mProblem,
+                                        targetVar, aEvidence);
 
+                        //std::cout << probability_distribution_pprint(dist) << std::endl;
+
+                        while (!dist.empty()) {
+                                VarType value = _sampleFromDistribution(targetVar, dist);
+                                aEvidence[targetVar->getId()] = value;
+
+                                Domain targetVarRemovedValues;
+
+                                targetVar->restrictDomainToValue(value, targetVarRemovedValues);
+                                ++aVarIterator;
+
+                                bool sampleFound = _getSampleInternal(aEvidence, aVarIterator, targetVar->getId());
+
+                                --aVarIterator;
+                                targetVar->restoreRestrictedDomain(targetVarRemovedValues);
+
+                                if (!sampleFound) {
+                                        aEvidence.erase(targetVar->getId());
+                                        dist.erase(value);
+                                } else {
+                                        mProblem->restoreDomains(removedValues);
+                                        return true; // Yep, we have a sample
+                                }
+                        }
+                } else {
+                        std::cout << "No solution found, backtracking from evidence " << assignment_pprint(aEvidence) << std::endl;
+                }
+                
+                // If no try has been succesful, restore the domains and return false
+                mProblem->restoreDomains(removedValues);
+
+                return false;
         }
-
-        return evidence;
 }
 
 VarType IJGPSampler::_sampleFromDistribution(Variable * aVariable, const ProbabilityDistribution & aDistribution) {
