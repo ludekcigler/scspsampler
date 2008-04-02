@@ -17,6 +17,7 @@ std::string DomainInterval::pprint() const {
  */
 DomainIntervalMap merge_intervals(const DomainIntervalMap & aList1, const DomainIntervalMap & aList2) {
         DomainIntervalMap result;
+        //std::cout << interval_list_pprint(aList1) << interval_list_pprint(aList2) << std::endl;
 
         DomainIntervalMap::const_iterator it1 = aList1.begin(), it2 = aList2.begin();
         VarType lb1, lb2, ub1, ub2;
@@ -52,6 +53,10 @@ DomainIntervalMap merge_intervals(const DomainIntervalMap & aList1, const Domain
                 }
 
                 VarType intervalLength = max(0, min(ub1, ub2) - max(lb1, lb2)); // Interval length should be at least one
+                if (intervalLength <= 0) {
+                        std::cout << "Interval length 0, UB1 " << ub1 << ", UB2 " << ub2 << ", LB1 " << lb1 << ", LB2 " << lb2 << std::endl;
+                        std::cout << interval_list_pprint(aList1) << interval_list_pprint(aList2) << std::endl;
+                }
                 assert(intervalLength > 0);
 
                 double probability = (((double)intervalLength) / (ub1 - lb1) * prob1) *
@@ -85,6 +90,7 @@ DomainIntervalMap merge_intervals(const DomainIntervalMap & aList1, const Domain
                         continue;
                 }
         }
+        //std::cout << interval_list_pprint(result);
 
         return result;
 }
@@ -108,13 +114,13 @@ DomainIntervalMap join_intervals(const DomainIntervalMap & aList, unsigned int a
 
         DomainIntervalMap result;
         
-        double intervalProbability = 1.0 / aMaxDomainIntervals;
+        double idealProbability = 1.0 / aMaxDomainIntervals;
 
         DomainIntervalMap splittedIntervals;
         // Split big intervals with many values into smaller ones
         for (DomainIntervalMap::const_iterator intIt = aList.begin(); intIt != aList.end(); ++ intIt) {
                 int intervalLength = intIt->first.upperBound - intIt->first.lowerBound;
-                int numSplits = min(intervalLength, max(1, (int)ceil(2.0 * intIt->second / intervalProbability)));
+                int numSplits = min(intervalLength, max(1, (int)ceil(2.0 * intIt->second / idealProbability)));
                 VarType lb = intIt->first.lowerBound;
 
                 for (int i = 0; i < numSplits; ++i) {
@@ -134,9 +140,50 @@ DomainIntervalMap join_intervals(const DomainIntervalMap & aList, unsigned int a
 
         VarType lb, ub;
         DomainIntervalMap::iterator intIt = splittedIntervals.begin();
+        double cumulatedProbability = 0.0, createdIntervalProbability = 0.0, debt = 0.0;
 
-        double cumulatedProbability = 0.0;
+        
+        for (DomainIntervalMap::iterator intIt = splittedIntervals.begin();
+                        intIt != splittedIntervals.end(); ++intIt) {
+                DomainInterval interval = intIt->first;
+                double probability = intIt->second;
 
+                if (probability > 0.0) {
+                        if (createdIntervalProbability <= 0.0) {
+                                if (probability >= idealProbability + debt) {
+                                        result[interval] = probability;
+                                        cumulatedProbability += probability;
+                                } else {
+                                        lb = interval.lowerBound;
+                                        ub = interval.upperBound;
+                                        createdIntervalProbability = probability;
+                                }
+                        } else {
+                                if ((createdIntervalProbability + probability) >= (2.0*idealProbability + debt)) {
+                                        result[DomainInterval(lb, ub)] = createdIntervalProbability;
+                                        cumulatedProbability += createdIntervalProbability;
+                                        createdIntervalProbability = 0.0;
+                                        result[interval] = probability;
+                                        cumulatedProbability += probability;
+                                } else if (createdIntervalProbability + probability >= idealProbability + debt) {
+                                        ub = interval.upperBound;
+                                        result[DomainInterval(lb, ub)] = createdIntervalProbability + probability;
+                                        cumulatedProbability += probability + createdIntervalProbability;
+                                        createdIntervalProbability = 0.0;
+                                } else {
+                                        ub = interval.upperBound;
+                                        createdIntervalProbability += probability;
+                                }
+                        }
+                }
+
+                debt = result.size() * idealProbability - cumulatedProbability;
+        }
+        if (createdIntervalProbability > 0.0) {
+                result[DomainInterval(lb, ub)] = createdIntervalProbability;
+        }
+
+        /*
         while (intIt != splittedIntervals.end()) {
                 if (cumulatedProbability <= 0.0) {
                         if (intIt->second >= intervalProbability) {
@@ -169,6 +216,7 @@ DomainIntervalMap join_intervals(const DomainIntervalMap & aList, unsigned int a
         if (cumulatedProbability > 0.0) {
                 result[DomainInterval(lb, ub)] = cumulatedProbability;
         }
+        */
 
         return result;
 }

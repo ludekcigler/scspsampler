@@ -33,20 +33,70 @@
 #include "ijgp.h"
 #include "utils.h"
 
-JoinGraphNode::~JoinGraphNode() {
-        purgeMessages();
+JoinGraph::JoinGraph(const JoinGraph & aGraph):
+        mOrdering(aGraph.mOrdering) {
 
+        // Create nodes
+        for (std::map<Scope, JoinGraphNode *>::const_iterator nodesIt = aGraph.mNodes.begin();
+                        nodesIt != aGraph.mNodes.end(); ++nodesIt) {
+                JoinGraphNode * node = new JoinGraphNode(nodesIt->first);
+                mNodes[nodesIt->first] = node;
+        }
+
+        // Create edges between these nodes
+        for (std::map<Scope, JoinGraphNode *>::const_iterator nodesIt = aGraph.mNodes.begin();
+                        nodesIt != aGraph.mNodes.end(); ++nodesIt) {
+                JoinGraphNode * node = mNodes[nodesIt->first];
+
+                for (std::list<JoinGraphEdge *>::const_iterator edgeIt = nodesIt->second->mEdges.begin();
+                                edgeIt != nodesIt->second->mEdges.end(); ++edgeIt) {
+                        Scope edgeScope((*edgeIt)->getScope());
+                        Scope targetNodeScope((*edgeIt)->targetNode()->getScope());
+                        JoinGraphEdge * edge = new JoinGraphEdge(mNodes[targetNodeScope], edgeScope);
+
+                        node->addEdge(edge);
+                }
+        }
+
+        // Copy messages
+        for (std::map<Scope, JoinGraphNode *>::const_iterator nodesIt = aGraph.mNodes.begin();
+                        nodesIt != aGraph.mNodes.end(); ++nodesIt) {
+                JoinGraphNode * node = mNodes[nodesIt->first];
+
+                for (std::map<JoinGraphNode *, JoinGraphMessage *>::iterator msgIt = nodesIt->second->mMessages.begin();
+                                msgIt != nodesIt->second->mMessages.end(); ++msgIt) {
+
+                        if (msgIt->second) {
+                                Scope messageNodeScope = msgIt->first->getScope();
+                                node->mMessages[mNodes[messageNodeScope]] = new JoinGraphMessage(*(msgIt->second)); 
+                        }
+                }
+
+                for (std::map<JoinGraphNode *, JoinGraphMessage *>::iterator msgIt = nodesIt->second->mOldMessages.begin();
+                                msgIt != nodesIt->second->mOldMessages.end(); ++msgIt) {
+
+                        if (msgIt->second) {
+                                Scope messageNodeScope = msgIt->first->getScope();
+                                node->mOldMessages[mNodes[messageNodeScope]] = new JoinGraphMessage(*(msgIt->second));
+                        }
+                }
+        }
+}
+
+JoinGraphNode::~JoinGraphNode() {
         for (std::map<JoinGraphNode *, JoinGraphMessage *>::iterator msgIt = mMessages.begin();
                         msgIt != mMessages.end(); ++msgIt) {
 
                 delete msgIt->second;
         }
+        mMessages.clear();
 
         for (std::map<JoinGraphNode *, JoinGraphMessage *>::iterator msgIt = mOldMessages.begin();
                         msgIt != mOldMessages.end(); ++msgIt) {
 
                 delete msgIt->second;
         }
+        mOldMessages.clear();
 }
 
 JoinGraph::~JoinGraph() {
@@ -54,6 +104,7 @@ JoinGraph::~JoinGraph() {
                         nodeIt != mNodes.end(); ++nodeIt) {
                 delete nodeIt->second;
         }
+        mNodes.clear();
 }
 
 JoinGraph * JoinGraph::createJoinGraph(CSPProblem * aProblem, unsigned int aMaxBucketSize) {
@@ -148,15 +199,15 @@ JoinGraph * JoinGraph::createJoinGraph(CSPProblem * aProblem, unsigned int aMaxB
 void JoinGraph::pprint() {
         for (std::map<Scope, JoinGraphNode *>::iterator nodeIt = this->mNodes.begin();
                         nodeIt != this->mNodes.end(); ++nodeIt) {
-                scope_pprint(nodeIt->first);
+                std::cout << scope_pprint(nodeIt->first);
                 std::cout << std::endl;
 
                 for (std::list<JoinGraphEdge *>::iterator edgeIt = nodeIt->second->mEdges.begin();
                                 edgeIt != nodeIt->second->mEdges.end(); ++edgeIt) {
                         std::cout << "\t";
-                        scope_pprint((*edgeIt)->getScope());
+                        std::cout << scope_pprint((*edgeIt)->getScope());
                         std::cout << " -> ";
-                        scope_pprint((*edgeIt)->targetNode()->getScope());
+                        std::cout << scope_pprint((*edgeIt)->targetNode()->getScope());
                         std::cout << std::endl;
                 }
         }

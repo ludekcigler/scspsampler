@@ -99,6 +99,31 @@ private:
         unsigned int mWeight;
 };
 
+class IntelEqualToConstantConstraint: public Constraint {
+public:
+        IntelEqualToConstantConstraint(VarIdType aVar, VarType aTargetValue, unsigned int aWeight):
+                mVar(aVar), mTargetValue(aTargetValue), mWeight(aWeight) {};
+
+        virtual double operator()(Assignment &a) const;
+
+        virtual Scope getScope() const {
+                Scope s;
+                s.insert(mVar);
+                return s;
+        };
+
+        virtual bool isSoft() const {
+                return mWeight > 0;
+        };
+
+        virtual bool hasSupport(VarIdType aVarId, VarType aValue, const CSPProblem &aProblem, const Assignment &aEvidence);
+private:
+        VarIdType mVar;
+        VarType mTargetValue;
+        unsigned int mWeight;
+};
+
+
 /**
  * Functions to load Intel data from files
  */

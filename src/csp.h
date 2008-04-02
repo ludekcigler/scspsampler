@@ -36,6 +36,8 @@ class Variable {
 public:
         Variable(const VarIdType &id, Domain * d): mId(id), mDomain(d) {};
 
+        Variable(const VarIdType &id, VarType aMinValue, VarType aMaxValue);
+
         virtual ~Variable() {
                 delete mDomain;
         };
@@ -67,6 +69,8 @@ public:
         void restoreRestrictedDomain(const Domain & aRemovedValues);
 
         unsigned int getNumValuesInDomainRange(VarType aLowerBound, VarType aUpperBound) const;
+
+        std::string pprint() const;
 protected:
         VarIdType mId; // Index of the variable
         Domain *mDomain; // Domain of the variable
@@ -190,6 +194,8 @@ public:
          * Returns number of values in the domain of aVarId in the range <aLowerBound, aUpperBound)
          */
         unsigned int getNumValuesInDomainRange(VarIdType aVarId, VarType aLowerBound, VarType aUpperBound) const;
+
+        std::string pprintVariables() const;
 
 protected:
 

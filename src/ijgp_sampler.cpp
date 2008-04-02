@@ -28,18 +28,31 @@
 
 IJGPSampler::IJGPSampler(CSPProblem * aProblem, unsigned int aMaxBucketSize, double aIJGPProbability,
                 unsigned int aMaxIJGPIterations):
-        CSPSampler(aProblem), mMaxBucketSize(aMaxBucketSize), mIJGPProbability(aIJGPProbability),
+        CSPSampler(aProblem), mJoinGraph(0), mMaxBucketSize(aMaxBucketSize), mIJGPProbability(aIJGPProbability),
         mMaxIJGPIterations(aMaxIJGPIterations) {
         
-        mJoinGraph = JoinGraph::createJoinGraph(aProblem, aMaxBucketSize);
+        mOriginalJoinGraph = JoinGraph::createJoinGraph(aProblem, aMaxBucketSize);
+
+        Assignment evidence;
+        std::map<VarIdType, Domain> removedValues;
+        // Initial propagation of constraints
+        mNoSolutionExists = !mProblem->propagateConstraints(evidence, removedValues);
+
+        // Initial join-graph propagation
+        mOriginalJoinGraph->iterativePropagation(mProblem, evidence, mMaxIJGPIterations);
 }
 
 IJGPSampler::~IJGPSampler() {
         delete mJoinGraph;
+        delete mOriginalJoinGraph;
 }
 
 bool IJGPSampler::getSample(Assignment & aAssignment) {
-        mJoinGraph->purgeMessages();
+        if (mJoinGraph) {
+                delete mJoinGraph;
+        }
+        mJoinGraph = new JoinGraph(*mOriginalJoinGraph);
+
         aAssignment = Assignment();
 
         return _getSampleInternal(aAssignment, mProblem->getVariables()->begin());
@@ -52,19 +65,20 @@ bool IJGPSampler::_getSampleInternal(Assignment & aEvidence, VariableMap::const_
                 return true; // We have reached the last variable
         } else {
                 std::map<VarIdType, Domain> removedValues;
-                bool domainsNotEmpty;
+                bool domainsNotEmpty = !mNoSolutionExists;
 
-                if (aEvidence.empty()) {
-                        // If the evidence is empty, there has not been any variable changed yet
-                        domainsNotEmpty = mProblem->propagateConstraints(aEvidence, removedValues);
-                } else {
+                if (!aEvidence.empty()) {
                         domainsNotEmpty = mProblem->propagateConstraints(aEvidence, removedValues, aLastChangedVariable);
                 }
 
                 if (domainsNotEmpty) {
                         // Select variable, and its value
                         Variable * targetVar = aVarIterator->second;
-                        mJoinGraph->iterativePropagation(mProblem, aEvidence, mMaxIJGPIterations);
+
+                        // Run IJGP with probability mIJGPProbability
+                        if (!aEvidence.empty() && (rand() / (double)RAND_MAX) < mIJGPProbability) {
+                                mJoinGraph->iterativePropagation(mProblem, aEvidence, mMaxIJGPIterations);
+                        }
 
                         ProbabilityDistribution dist = mJoinGraph->conditionalDistribution(mProblem,
                                         targetVar, aEvidence);

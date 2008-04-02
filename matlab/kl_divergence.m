@@ -10,11 +10,10 @@ function KL = kl_divergence(aSamples, aSolutions, aDomains)
 EPSILON = 1e-20;
 
 samples = aSamples(:, 2:size(aSamples, 2));
-sampleEvals = aSamples(:, 1);
+
 solutions = aSolutions(:, 2:size(aSolutions, 2));
 solutionEvals = aSolutions(:, 1);
 
-sampleDenom = sum(sampleEvals);
 solutionDenom = sum(solutionEvals);
 
 KL = [];
@@ -26,7 +25,8 @@ for varId = 1:length(aDomains)
     for val = aDomains{varId}
         % For each value compute the probability of encountering that value
         varSampleIndex = (samples(:, varId) == val);
-        varSampleDist = [varSampleDist sum(varSampleIndex .* sampleEvals) / sampleDenom];
+        % For real samples, we don't need to multiply the distribution by sample probability
+        varSampleDist = [varSampleDist sum(varSampleIndex)]; 
 
         varSolutionIndex = (solutions(:, varId) == val);
         varSolutionDist = [varSolutionDist sum(varSolutionIndex .* solutionEvals) / solutionDenom];
@@ -38,4 +38,4 @@ for varId = 1:length(aDomains)
 
     KL = [KL kldiv(aDomains{varId}, varSampleDist, varSolutionDist)];
 end 
-        
+

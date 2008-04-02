@@ -28,6 +28,16 @@
 #include "csp.h"
 #include "utils.h"
 
+Variable::Variable(const VarIdType &id, VarType aMinValue, VarType aMaxValue):
+        mId(id) {
+        mDomain = new Domain();
+
+        for (VarType i = aMinValue; i <= aMaxValue; ++i) {
+                mDomain->insert(i);
+        }
+}
+
+
 CSPProblem::CSPProblem(VariableMap *v, ConstraintList *c):
         mVariables(v), mConstraints(c) {
         assert(v);
@@ -269,6 +279,7 @@ void Constraint::addIntervalProbability(DomainIntervalAssignment &aAssignment, d
 
 void Constraint::initDomainIntervals(CSPProblem &aProblem, unsigned int aMaxIntervals) {
         Scope scope = getScope();
+        mDomainIntervals.clear();
 
         std::map<VarIdType, std::map<VarType, double> > varProbabilities;
         double totalProbability;
@@ -318,6 +329,8 @@ void Constraint::initDomainIntervals(CSPProblem &aProblem, unsigned int aMaxInte
                                         probIt->second / totalProbability;
                         }
                 }
+
+                //std::cout << "Initialized " << *scopeIt << ": " << interval_list_pprint(mDomainIntervals[*scopeIt]);
 
                 // Join the intervals
                 mDomainIntervals[*scopeIt] = join_intervals(mDomainIntervals[*scopeIt], aMaxIntervals);
@@ -499,6 +512,24 @@ void Variable::restoreRestrictedDomain(const Domain & aRemovedValues) {
         for (Domain::const_iterator domIt = aRemovedValues.begin(); domIt != aRemovedValues.end(); ++domIt) {
                 mDomain->insert(*domIt);
         }
+}
+
+
+std::string Variable::pprint() const {
+        std::ostringstream out;
+        out << "x_" << mId << ": ";
+        for (Domain::const_iterator domIt = mDomain->begin(); domIt != mDomain->end(); ++domIt) {
+                out << *domIt << ", ";
+        }
+        return out.str();
+}
+
+std::string CSPProblem::pprintVariables() const {
+        std::ostringstream out;
+        for (VariableMap::const_iterator varIt = mVariables->begin(); varIt != mVariables->end(); ++varIt) {
+                out << varIt->second->pprint() << std::endl;
+        }
+        return out.str();
 }
 
 unsigned int CSPProblem::getNumValuesInDomainRange(VarIdType aVarId, VarType aLowerBound, VarType aUpperBound) const {

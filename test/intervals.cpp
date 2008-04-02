@@ -56,25 +56,17 @@ int main(int argc, char ** argv) {
 
         DomainIntervalMap merger = merge_intervals(il1, il2);
 
-        std::cout << "Merged:\t\t" << interval_list_pprint(merger) << std::endl;
+        std::cout << "Merged:\t\t" << interval_list_pprint(merger);
 
         merger = normalize_intervals(merger);
-        std::cout << "Normalized:\t" << interval_list_pprint(merger) << std::endl;
+        std::cout << "Normalized:\t" << interval_list_pprint(merger);
 
-        DomainIntervalMap joined = join_intervals(merger, 18);
-        std::cout << "Joined:\t\t" << interval_list_pprint(joined) << std::endl;
+        DomainIntervalMap joined = join_intervals(merger, 6);
+        std::cout << "Joined:\t\t" << interval_list_pprint(joined);
+        std::cout << "Joined size:\t" << joined.size() << std::endl;
 
         DomainIntervalMap adjusted = adjust_intervals_to_domain(joined, d);
         adjusted = normalize_intervals(adjusted);
-        std::cout << "Adjusted:\t" << interval_list_pprint(adjusted) << std::endl;
+        std::cout << "Adjusted:\t" << interval_list_pprint(adjusted);
 
-        Domain::iterator domIt = d.begin();
-        --domIt;
-        std::cout << "DomIt " << (domIt == d.begin()) << std::endl;
-
-        DomainIntervalMap ds;
-        ds[DomainInterval(0, 10)] = 0.3;
-        ds[DomainInterval(0, 10)] = 0.5;
-        std::cout << "Find: " << (ds.find(DomainInterval(0, 10)) != ds.end()) << std::endl;
-        std::cout << interval_list_pprint(ds) << std::endl;
 }

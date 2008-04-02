@@ -25,7 +25,7 @@
 #include "csp.h"
 #include "utils.h"
 
-const double EPSILON = 1.0e-20;
+const double EPSILON = 1.0e-25;
 
 VarType random_select(const Domain *d) {
         assert(d);
@@ -64,6 +64,11 @@ VarType random_select(const Domain *aDomain, VarType aLowerBound, VarType aUpper
                         return (*domIt);
         }
 
+        std::cout << "Random select" << std::endl;
+        std::cout << "\tDomain size " << domainSize << std::endl;
+        std::cout << "\tLower bound " << aLowerBound << ", " << ((aBegin != aDomain->end()) ? *aBegin : -1) << std::endl;
+        std::cout << "\tUpper bound " << aUpperBound << ", " << ((aEnd != aDomain->end()) ? *aEnd : -1) << std::endl;
+
         assert(false);
 }
 
@@ -94,6 +99,10 @@ double min(double x, double y) {
 }
 
 int max(int x, int y) {
+        return (((x) > (y)) ? (x) : (y));
+}
+
+unsigned long max(unsigned long x, unsigned long y) {
         return (((x) > (y)) ? (x) : (y));
 }
 

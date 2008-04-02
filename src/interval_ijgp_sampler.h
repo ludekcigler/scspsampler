@@ -36,7 +36,7 @@ public:
         virtual bool getSample(Assignment & aAssignment);
 
 private:
-        bool _getSampleInternal(Assignment & aEvidence, VariableMap::const_iterator aVarIterator,
+        bool _getSampleInternal(const IntervalJoinGraph * aJG, Assignment & aEvidence, VariableMap::const_iterator aVarIterator,
                 VarIdType aLastChangedVariable = 0);
         /**
          * Sample from given distribution for a given variable
@@ -46,7 +46,7 @@ private:
         static void _eraseValueFromDist(const Variable * aVariable, VarType aValue,
                         IntervalProbabilityDistribution &aDistribution);
 
-        IntervalJoinGraph * mJoinGraph;
+        IntervalJoinGraph * mJoinGraph, * mOriginalJoinGraph;
         unsigned int mMaxBucketSize;
         double mIJGPProbability;
         unsigned int mMaxIJGPIterations;
@@ -60,6 +60,7 @@ private:
          * Maximum number of values from single interval used for sampling
          */
         unsigned int mMaxValuesFromInterval;
+        bool mNoSolutionExists;
 };
 
 std::string interval_probability_distribution_pprint(const IntervalProbabilityDistribution & aDist);
