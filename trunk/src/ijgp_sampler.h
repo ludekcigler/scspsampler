@@ -41,10 +41,12 @@ private:
         bool _getSampleInternal(Assignment & aEvidence, VariableMap::const_iterator aVarIterator,
                 VarIdType aLastChangedVariable = 0);
 
-        JoinGraph * mJoinGraph;
+        JoinGraph * mJoinGraph, *mOriginalJoinGraph;
         unsigned int mMaxBucketSize;
         double mIJGPProbability;
         unsigned int mMaxIJGPIterations;
+
+        bool mNoSolutionExists;
 };
 
 #endif // IJGP_SAMPLER_H_

@@ -25,5 +25,8 @@ env.Program(target = 'scspsampler', source = Split('csp.cpp celar.cpp gibbs_samp
 
 intel_sampler_node = env.Program(target = 'intel_sampler', source = Split('csp.cpp intel.cpp gibbs_sampler.cpp main_intel.cpp ijgp.cpp ijgp_sampler.cpp utils.cpp optparse/optparse.cpp graph.cpp domain_interval.cpp interval_ijgp_sampler.cpp interval_ijgp.cpp'))
 
+wcsp_sampler_node = env.Program(target = 'wcspsampler', source = Split('csp.cpp wcsp.cpp gibbs_sampler.cpp main_wcsp.cpp ijgp.cpp ijgp_sampler.cpp utils.cpp optparse/optparse.cpp graph.cpp domain_interval.cpp interval_ijgp_sampler.cpp interval_ijgp.cpp'))
+
 env.Default('scspsampler')
 env.Alias("intel", intel_sampler_node)
+env.Alias("wcsp", wcsp_sampler_node)

@@ -38,7 +38,7 @@ double IntelEqualityConstraint::operator()(Assignment &a) const {
         if (mWeight == 0) {
                 return satisfied ? 1.0 : EPSILON; // Let's give a smallish chance to unfeasible solutions
         } else {
-                return exp(log(EXP_ROOT) * 1 * (double)satisfied);
+                return exp(log(EXP_ROOT) * 5 * (double)satisfied);
         }
 }
 
@@ -48,7 +48,7 @@ double IntelInequalityConstraint::operator()(Assignment &a) const {
         if (mWeight == 0) {
                 return satisfied ? 1.0 : EPSILON; // Let's give a smallish chance to unfeasible solutions
         } else {
-                return exp(log(EXP_ROOT) * 1 * (double)satisfied);
+                return exp(log(EXP_ROOT) * 5 * (double)satisfied);
         }
 }
 
@@ -58,7 +58,17 @@ double IntelIntervalsNotEqualConstraint::operator()(Assignment &a) const {
         if (mWeight == 0) {
                 return satisfied ? 1.0 : EPSILON; // Let's give a smallish chance to unfeasible solutions
         } else {
-                return exp(log(EXP_ROOT) * 1 * (double)satisfied);
+                return exp(log(EXP_ROOT) * 5 * (double)satisfied);
+        }
+}
+
+double IntelEqualToConstantConstraint::operator()(Assignment &a) const {
+        bool satisfied = (a[mVar] == mTargetValue);
+
+        if (mWeight == 0) {
+                return satisfied ? 1.0 : EPSILON; // Let's give a smallish chance to unfeasible solutions
+        } else {
+                return exp(log(EXP_ROOT) * 5 * (double)satisfied);
         }
 }
 
@@ -115,6 +125,18 @@ bool IntelIntervalsNotEqualConstraint::hasSupport(VarIdType aVarId, VarType aVal
         return true;
 }
 
+bool IntelEqualToConstantConstraint::hasSupport(VarIdType aVarId, VarType aValue, const CSPProblem &aProblem, const Assignment &aEvidence) {
+        if (isSoft())
+                return true;
+
+        return (aValue == mTargetValue);
+}
+
+Constraint * intel_load_equal_to_constant_constraint(const std::vector<std::string> & aWords) {
+        return new IntelEqualToConstantConstraint(parseArg<VarIdType>(aWords[1]),
+                        parseArg<VarType>(aWords[2]), parseArg<unsigned int>(aWords[3]));
+}
+
 ConstraintList * intel_load_constraints(const char * fileName) {
         std::ifstream file(fileName);
         std::string line;
@@ -135,6 +157,8 @@ ConstraintList * intel_load_constraints(const char * fileName) {
                 } else if (words[0] == "NEQ") {
                         result->push_back(new IntelInequalityConstraint(parseArg<VarIdType>(words[1]), parseArg<VarIdType>(words[2]),
                                                 parseArg<unsigned int>(words[3])));
+                } else if (words[0] == "EQC") {
+                        result->push_back(intel_load_equal_to_constant_constraint(words));
                 }
         }
 
@@ -151,13 +175,18 @@ ConstraintList * intel_load_interval_inequality_constraints(const char * fileNam
                 std::vector<std::string> words;
                 tokenize(line, words);
 
-                if (words.size() < 5)
-                        continue;
 
-                result->push_back(new IntelIntervalsNotEqualConstraint(parseArg<VarIdType>(words[0]),
-                                        parseArg<VarIdType>(words[1]), parseArg<VarIdType>(words[2]),
-                                        parseArg<VarIdType>(words[3]),
-                                        parseArg<unsigned int>(words[4])));
+                if (words[0] == "INEQ") {
+                        result->push_back(new IntelIntervalsNotEqualConstraint(parseArg<VarIdType>(words[1]),
+                                        parseArg<VarIdType>(words[2]), parseArg<VarIdType>(words[3]),
+                                        parseArg<VarIdType>(words[4]),
+                                        parseArg<unsigned int>(words[5])));
+                } else if (words[0] == "NEQ") {
+                        result->push_back(new IntelInequalityConstraint(parseArg<VarIdType>(words[1]), parseArg<VarIdType>(words[2]),
+                                                parseArg<unsigned int>(words[3])));
+                } else if (words[0] == "EQC") {
+                        result->push_back(intel_load_equal_to_constant_constraint(words));
+                }
         }
 
         return result;

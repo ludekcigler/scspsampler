@@ -34,20 +34,78 @@
 #include "interval_ijgp.h"
 #include "utils.h"
 
+#define RECOMPUTE_DOMAIN_INTERVALS 0
+
+IntervalJoinGraph::IntervalJoinGraph(const IntervalJoinGraph & aGraph):
+        mOrdering(aGraph.mOrdering),
+        mMaxDomainIntervals(aGraph.mMaxDomainIntervals), mMaxValuesFromInterval(aGraph.mMaxValuesFromInterval) {
+
+        // Create nodes
+        for (std::map<Scope, IntervalJoinGraphNode *>::const_iterator nodesIt = aGraph.mNodes.begin();
+                        nodesIt != aGraph.mNodes.end(); ++nodesIt) {
+                IntervalJoinGraphNode * node = new IntervalJoinGraphNode(nodesIt->second);
+                mNodes[nodesIt->first] = node;
+        }
+
+        // Create edges between these nodes
+        for (std::map<Scope, IntervalJoinGraphNode *>::const_iterator nodesIt = aGraph.mNodes.begin();
+                        nodesIt != aGraph.mNodes.end(); ++nodesIt) {
+                IntervalJoinGraphNode * node = mNodes[nodesIt->first];
+
+                for (std::list<IntervalJoinGraphEdge *>::const_iterator edgeIt = nodesIt->second->mEdges.begin();
+                                edgeIt != nodesIt->second->mEdges.end(); ++edgeIt) {
+                        Scope edgeScope((*edgeIt)->getScope());
+                        Scope targetNodeScope((*edgeIt)->targetNode()->getScope());
+                        IntervalJoinGraphEdge * edge = new IntervalJoinGraphEdge(mNodes[targetNodeScope], edgeScope);
+
+                        node->addEdge(edge);
+                }
+        }
+
+        // Copy messages
+        for (std::map<Scope, IntervalJoinGraphNode *>::const_iterator nodesIt = aGraph.mNodes.begin();
+                        nodesIt != aGraph.mNodes.end(); ++nodesIt) {
+                IntervalJoinGraphNode * node = mNodes[nodesIt->first];
+
+                for (std::map<IntervalJoinGraphNode *, IntervalJoinGraphMessage *>::iterator msgIt = nodesIt->second->mMessages.begin();
+                                msgIt != nodesIt->second->mMessages.end(); ++msgIt) {
+
+                        Scope messageNodeScope = msgIt->first->getScope();
+                        node->mMessages[mNodes[messageNodeScope]] = new IntervalJoinGraphMessage(*(msgIt->second));
+                }
+
+                for (std::map<IntervalJoinGraphNode *, IntervalJoinGraphMessage *>::iterator msgIt = nodesIt->second->mOldMessages.begin();
+                                msgIt != nodesIt->second->mOldMessages.end(); ++msgIt) {
+
+                        Scope messageNodeScope = msgIt->first->getScope();
+                        node->mOldMessages[mNodes[messageNodeScope]] = new IntervalJoinGraphMessage(*(msgIt->second));
+                }
+        }
+}
+
 IntervalJoinGraphNode::~IntervalJoinGraphNode() {
         purgeMessages();
+
+        for (std::list<IntervalJoinGraphEdge *>::const_iterator edgeIt = mEdges.begin();
+                edgeIt != mEdges.end(); ++edgeIt) {
+                delete (*edgeIt);
+        }
+        mEdges.clear();
 
         for (std::map<IntervalJoinGraphNode *, IntervalJoinGraphMessage *>::iterator msgIt = mMessages.begin();
                         msgIt != mMessages.end(); ++msgIt) {
 
                 delete msgIt->second;
         }
+        
+        mMessages.clear();
 
         for (std::map<IntervalJoinGraphNode *, IntervalJoinGraphMessage *>::iterator msgIt = mOldMessages.begin();
                         msgIt != mOldMessages.end(); ++msgIt) {
 
                 delete msgIt->second;
         }
+        mOldMessages.clear();
 }
 
 IntervalJoinGraph::~IntervalJoinGraph() {
@@ -81,7 +139,7 @@ IntervalJoinGraph * IntervalJoinGraph::createJoinGraph(CSPProblem * aProblem, un
         */
 #endif
 
-        IntervalJoinGraph * joinGraph = new IntervalJoinGraph();
+        IntervalJoinGraph * joinGraph = new IntervalJoinGraph(aMaxDomainIntervals, aMaxValuesFromInterval);
         // Create join-graph node for every mini-bucket
         for (size_t i = 0; i < miniBuckets.size(); ++i) {
                 for (std::vector<Scope>::iterator mbIt = miniBuckets[i].begin(); mbIt != miniBuckets[i].end(); ++mbIt) {
@@ -165,14 +223,16 @@ std::string IntervalJoinGraph::pprint() const {
 }
 
 void IntervalJoinGraphNode::initDomainIntervals(CSPProblem * aProblem) {
-        std::cout << "Initializing node " << scope_pprint(mScope) << std::endl;
+        // std::cout << "Initializing node " << scope_pprint(mScope) << std::endl;
+        mConstraintDomainIntervals.clear();
+
         // If there are no constraints in the node, create uniform intervals
         // according to a domain
-        if (mConstraints.empty() || true) { 
+        if (mConstraints.empty()) { 
                 for (Scope::iterator scopeIt = mScope.begin(); scopeIt != mScope.end(); ++scopeIt) {
                         const Domain * domain = aProblem->getVariableById(*scopeIt)->getDomain();
                         mConstraintDomainIntervals[*scopeIt] = uniform_intervals_for_domain(*domain, mMaxDomainIntervals);
-                        //std::cout << "Uniform interval for " << *scopeIt << " " << interval_list_pprint(mConstraintDomainIntervals[*scopeIt]) << std::endl;
+                        // std::cout << "Uniform interval for " << *scopeIt << " " << interval_list_pprint(mConstraintDomainIntervals[*scopeIt]) << std::endl;
                 }
                 mDomainIntervals = mConstraintDomainIntervals;
                 return; // No need to do anything else
@@ -186,6 +246,7 @@ void IntervalJoinGraphNode::initDomainIntervals(CSPProblem * aProblem) {
 
                         for (Scope::const_iterator scopeIt = ctrScope.begin(); scopeIt != ctrScope.end(); ++scopeIt) {
                                 VarIdType varId = *scopeIt;
+                                //std::cout << "Merging " << varId << std::endl;
                                 if (mConstraintDomainIntervals.find(varId) == mConstraintDomainIntervals.end()) {
                                         mConstraintDomainIntervals[varId] = (*ctrIt)->getDomainIntervals(varId);
                                 } else {
@@ -193,6 +254,7 @@ void IntervalJoinGraphNode::initDomainIntervals(CSPProblem * aProblem) {
                                                 merge_intervals(mConstraintDomainIntervals[varId],
                                                                 (*ctrIt)->getDomainIntervals(varId));
                                 }
+                                //std::cout << "Ctr dom interval " << varId << " " << interval_list_pprint(mConstraintDomainIntervals[varId]);
                         }
                 }
         }
@@ -207,7 +269,25 @@ void IntervalJoinGraphNode::initDomainIntervals(CSPProblem * aProblem) {
                 // Copy the initial constraint domain intervals in the mDomainIntervals map
                 mDomainIntervals[domIt->first] = domIt->second;
 
-                //std::cout << "Domain interval " << domIt->first << " " << interval_list_pprint(domIt->second) << std::endl;
+                // std::cout << "Domain interval " << domIt->first << " " << interval_list_pprint(domIt->second);
+        }
+}
+
+void IntervalJoinGraphNode::adjustIntervalsToDomains(const CSPProblem * aProblem) {
+        for (std::map<VarIdType, DomainIntervalMap>::iterator domIt = mDomainIntervals.begin();
+                        domIt != mDomainIntervals.end(); ++domIt) {
+
+                const Domain * domain = aProblem->getVariableById(domIt->first)->getDomain();
+                domIt->second = join_intervals(normalize_intervals(adjust_intervals_to_domain(domIt->second, *domain)),
+                                mMaxDomainIntervals);
+                        //std::cout << "Domain interval after " << domIt->first << ": " << interval_list_pprint(mDomainIntervals[domIt->first]) << std::endl;
+        }
+}
+
+void IntervalJoinGraphNode::restoreDomainIntervals() {
+        for (Scope::iterator scopeIt = mScope.begin(); scopeIt != mScope.end(); ++scopeIt) {
+                mDomainIntervals[*scopeIt] = mConstraintDomainIntervals[*scopeIt];
+                //std::cout << "Domain interval for " << *scopeIt << ": " << interval_list_pprint(mConstraintDomainIntervals[*scopeIt]) << std::endl;
         }
 }
 
@@ -264,13 +344,12 @@ IntervalJoinGraphMessage * IntervalJoinGraphNode::getMessage(const CSPProblem * 
         // and assign those intervals to the message
 
         // Re-initialize the domain intervals from the constraint domain intervals
+        /*
         for (Scope::iterator scopeIt = mScope.begin(); scopeIt != mScope.end(); ++scopeIt) {
                 mDomainIntervals[*scopeIt] = mConstraintDomainIntervals[*scopeIt];
                 //std::cout << "Domain interval for " << *scopeIt << ": " << interval_list_pprint(mConstraintDomainIntervals[*scopeIt]) << std::endl;
         }
-
         
-        /*
         for (std::map<IntervalJoinGraphNode *, IntervalJoinGraphMessage *>::const_iterator msgIt = mMessages.begin();
                         msgIt != mMessages.end(); ++msgIt) {
                 Scope msgScope = msgIt->second->getScope();
@@ -288,16 +367,17 @@ IntervalJoinGraphMessage * IntervalJoinGraphNode::getMessage(const CSPProblem * 
                         domIt != mDomainIntervals.end(); ++domIt) {
 
                 const Domain * domain = aProblem->getVariableById(domIt->first)->getDomain();
-                domIt->second = adjust_intervals_to_domain(
-                                        join_intervals(normalize_intervals(domIt->second), mMaxDomainIntervals),
-                                        *domain);
-                        //std::cout << "Domain interval after " << domIt->first << ": " << interval_list_pprint(mDomainIntervals[domIt->first]) << std::endl;
+                domIt->second = join_intervals(normalize_intervals(adjust_intervals_to_domain(domIt->second, *domain)),
+                                mMaxDomainIntervals);
+                        //std::cout << "Domain interval after " << domIt->first << ": " << interval_list_pprint(mDomainIntervals[domIt->first]);
         }
 
         IntervalJoinGraphMessage * message = new IntervalJoinGraphMessage(messageScope, mDomainIntervals);
 
-        // clear domain interval probabilities
-        _clearDomainIntervalProbabilities();
+        if (RECOMPUTE_DOMAIN_INTERVALS) {
+                // clear domain interval probabilities
+                _clearDomainIntervalProbabilities();
+        }
 
         // Assign values to all unassigned variables (those in the scope of the message
         // and those that need to be marginalized out)
@@ -309,8 +389,10 @@ IntervalJoinGraphMessage * IntervalJoinGraphNode::getMessage(const CSPProblem * 
 
         message->normalize();
 
-        // TODO: normalize domain interval probabilities
-        _normalizeDomainIntervalProbabilities(aProblem);
+        if (RECOMPUTE_DOMAIN_INTERVALS) {
+                // TODO: normalize domain interval probabilities
+                _normalizeDomainIntervalProbabilities(aProblem);
+        }
 
         return message;
 }
@@ -507,8 +589,10 @@ double IntervalJoinGraphNode::_evalAssignment(Assignment & aAssignment, const In
 
         //std::cout << "Probability " << result << std::endl;
 
-        // update probabilities in all domain intervals
-        _addDomainIntervalProbability(aAssignment, result);
+        if (RECOMPUTE_DOMAIN_INTERVALS) {
+                // update probabilities in all domain intervals
+                _addDomainIntervalProbability(aAssignment, result);
+        }
 
         return result;
 }
@@ -702,8 +786,9 @@ void IntervalJoinGraph::iterativePropagation(CSPProblem * aProblem, Assignment &
                                         edgeIt != node->mEdges.end(); ++edgeIt) {
 
                                 
-                                //std::cout << "Processing edge " << scope_pprint(node->getScope()) << " -> " <<
-                                        //scope_pprint((*edgeIt)->targetNode()->getScope()) << std::endl;
+                                /*
+                                std::cout << "Processing edge " << scope_pprint(node->getScope()) << " -> " <<
+                                       scope_pprint((*edgeIt)->targetNode()->getScope()) << std::endl;*/
                                
                                 // Create a new message
                                 IntervalJoinGraphMessage * message = node->getMessage(aProblem, *edgeIt, aEvidence, evidenceScope);

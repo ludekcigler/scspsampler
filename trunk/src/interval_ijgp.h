@@ -39,6 +39,16 @@ public:
         IntervalJoinGraphNode(const Scope & s, unsigned int aMaxDomainIntervals, unsigned int aMaxValuesFromInterval):
                 mScope(s), mMaxDomainIntervals(aMaxDomainIntervals), mMaxValuesFromInterval(aMaxValuesFromInterval) {};
 
+        IntervalJoinGraphNode(const IntervalJoinGraphNode * aNode):
+                mScope(aNode->mScope),                 
+                mDomainIntervals(aNode->mDomainIntervals),
+                mConstraintDomainIntervals(aNode->mConstraintDomainIntervals),
+                mTotalProbabilities(aNode->mTotalProbabilities),
+                mMaxDomainIntervals(aNode->mMaxDomainIntervals),
+                mMaxValuesFromInterval(aNode->mMaxValuesFromInterval) {};
+
+
+
         ~IntervalJoinGraphNode();
 
         Scope getScope() const {
@@ -59,6 +69,10 @@ public:
          * by merging constraint domain intervals
          */
         void initDomainIntervals(CSPProblem * aProblem);
+
+        void adjustIntervalsToDomains(const CSPProblem * aProblem);
+
+        void restoreDomainIntervals();
 
         void setMessage(IntervalJoinGraphNode * aNodeFrom, IntervalJoinGraphMessage * aMessage);
 
@@ -141,6 +155,10 @@ public:
         IntervalJoinGraphNode * targetNode() {
                 return mTargetNode;
         };
+
+        const IntervalJoinGraphNode * targetNode() const {
+                return mTargetNode;
+        };
 private:
         IntervalJoinGraphNode *mTargetNode;
         Scope mScope;
@@ -150,6 +168,12 @@ typedef std::map<Scope, JoinGraphNode *> JoinGraphNodeMap;
 
 class IntervalJoinGraph {
 public:
+        IntervalJoinGraph(unsigned int aMaxDomainIntervals = MAX_DOMAIN_INTERVALS,
+                        unsigned int aMaxValuesFromInterval = MAX_VALUES_FROM_INTERVAL):
+                mMaxDomainIntervals(aMaxDomainIntervals), mMaxValuesFromInterval(aMaxValuesFromInterval) {};
+
+        // Copy-constructor
+        IntervalJoinGraph(const IntervalJoinGraph & aGraph);
         ~IntervalJoinGraph();
 
         /**
@@ -172,6 +196,28 @@ public:
                                 nodeIt != mNodes.end(); ++nodeIt) {
 
                         nodeIt->second->initDomainIntervals(aProblem);
+                }
+        };
+
+        /**
+         * Initializes domain intervals for all graph nodes
+         */
+        void adjustIntervalsToDomains(const CSPProblem * aProblem) {
+                for (std::map<Scope, IntervalJoinGraphNode *>::iterator nodeIt = mNodes.begin();
+                                nodeIt != mNodes.end(); ++nodeIt) {
+
+                        nodeIt->second->adjustIntervalsToDomains(aProblem);
+                }
+        };
+
+        /**
+         * Initializes domain intervals for all graph nodes
+         */
+        void restoreDomainIntervals() {
+                for (std::map<Scope, IntervalJoinGraphNode *>::iterator nodeIt = mNodes.begin();
+                                nodeIt != mNodes.end(); ++nodeIt) {
+
+                        nodeIt->second->restoreDomainIntervals();
                 }
         };
 
@@ -210,6 +256,8 @@ private:
         std::vector<Scope> mOrdering;
 
         std::map<Scope, IntervalJoinGraphNode *> mNodes;
+
+        unsigned int mMaxDomainIntervals, mMaxValuesFromInterval;
 };
 
 class IntervalJoinGraphMessage {

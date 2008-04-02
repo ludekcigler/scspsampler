@@ -43,6 +43,7 @@ int min(int x, int y);
 double min(double x, double y);
 
 int max(int x, int y);
+unsigned long max(unsigned long x, unsigned long y);
 
 double max(double x, double y);
 

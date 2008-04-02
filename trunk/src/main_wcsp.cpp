@@ -25,7 +25,7 @@
 #include "optparse/optparse.h"
 
 #include "csp.h"
-#include "intel.h"
+#include "wcsp.h"
 #include "ijgp.h"
 #include "gibbs_sampler.h"
 #include "ijgp_sampler.h"
@@ -38,11 +38,11 @@ int main(int argc, char ** argv) {
 
         parser.addOption(/*aShortName*/ 's', /*aLongName*/ "sampler", /*aAlias*/ "sampler",
                         /*aHasArg*/ true, /*aSpecifiedByDefault*/ true,
-                        /*aArg*/ "interval-ijgp", /*aHelpText*/ "Sampler type; Either \"gibbs\", \"ijgp\" or \"interval-ijgp\"");
+                        /*aArg*/ "ijgp", /*aHelpText*/ "Sampler type; Either \"gibbs\", \"ijgp\" or \"interval-ijgp\"");
 
         parser.addOption(/*aShortName*/ 0, /*aLongName*/ "dataset", /*aAlias*/ "dataset",
                         /*aHasArg*/ true, /*aSpecifiedByDefault*/ true,
-                        /*aArg*/ "/home/luigi/Matfyz/Diplomka/scspsampler/trunk/data/intel/01/",
+                        /*aArg*/ "/home/luigi/Matfyz/Diplomka/scspsampler/trunk/data/wcsp/celar_small.wcsp",
                         /*aHelpText*/ "Path to CELAR dataset directory");
 
         parser.addOption(/*aShortName*/ 0, /*aLongName*/ "ijgpIter", /*aAlias*/ "ijgpIter",
@@ -55,7 +55,7 @@ int main(int argc, char ** argv) {
 
         parser.addOption(/*aShortName*/ 'p', /*aLongName*/ "ijgpProbability", /*aAlias*/ "ijgpProbability",
                         /*aHasArg*/ true, /*aSpecifiedByDefault*/ true,
-                        /*aArg*/ "0.5", /*aHelpText*/ "Probability with which the IJGP is performed during sampling");
+                        /*aArg*/ "1.0", /*aHelpText*/ "Probability with which the IJGP is performed during sampling");
 
         parser.addOption(/*aShortName*/ 0, /*aLongName*/ "burnIn", /*aAlias*/ "burnIn",
                         /*aHasArg*/ true, /*aSpecifiedByDefault*/ true,
@@ -63,19 +63,19 @@ int main(int argc, char ** argv) {
 
         parser.addOption(/*aShortName*/ 'n', /*aLongName*/ "numSamples", /*aAlias*/ "numSamples",
                         /*aHasArg*/ true, /*aSpecifiedByDefault*/ true,
-                        /*aArg*/ "20", /*aHelpText*/ "Number of samples we should generate");
+                        /*aArg*/ "1", /*aHelpText*/ "Number of samples we should generate");
 
         parser.addOption(/*aShortName*/ 0, /*aLongName*/ "domainIntervals", /*aAlias*/ "domainIntervals",
                         /*aHasArg*/ true, /*aSpecifiedByDefault*/ true,
-                        /*aArg*/ "6", /*aHelpText*/ "Maximum number of domain intervals (for interval-IJGP)");
+                        /*aArg*/ "5", /*aHelpText*/ "Maximum number of domain intervals (for interval-IJGP)");
 
         parser.addOption(/*aShortName*/ 0, /*aLongName*/ "valuesFromInterval", /*aAlias*/ "valuesFromInterval",
                         /*aHasArg*/ true, /*aSpecifiedByDefault*/ true,
-                        /*aArg*/ "1", /*aHelpText*/ "Maximum number of values from a single interval (for interval-IJGP)");
+                        /*aArg*/ "2", /*aHelpText*/ "Maximum number of values from a single interval (for interval-IJGP)");
 
-        parser.addOption(/*aShortName*/ 0, /*aLongName*/ "intelModelType", /*aAlias*/ "intelModelType",
+        parser.addOption(/*aShortName*/ 'k', /*aLongName*/ "koef", /*aAlias*/ "koef",
                         /*aHasArg*/ true, /*aSpecifiedByDefault*/ true,
-                        /*aArg*/ "extra-vars", /*aHelpText*/ "Intel model type -- naive (4-ary constraints) or extra-vars (extra variables, 3-ary constraints");
+                        /*aArg*/ "0.01", /*aHelpText*/ "Default weight koefitient for constraints");
 
         try {
                 parser.parseOptions();
@@ -92,40 +92,29 @@ int main(int argc, char ** argv) {
 
         // Load info about CSP problem
         std::string dataDir = parser.getOptionArg("dataset");
-        std::string modelType = parser.getOptionArg("intelModelType");
-        ConstraintList * c;
-        if (modelType == "naive") {
-                c = intel_load_interval_inequality_constraints((dataDir + "/ctr.txt").c_str());
-        } else {
-                c = intel_load_constraints((dataDir + "/ctr.txt").c_str());
-        }
 
-        std::vector<Domain> * d = intel_load_domains((dataDir + "/dom.txt").c_str());
-        VariableMap * v = new VariableMap();
-        intel_load_variables((dataDir + "/var.txt").c_str(), d, v, c);
-
-        CSPProblem * p = new CSPProblem(v, c);
+        CSPProblem * p = load_wcsp_problem(dataDir.c_str());
 
         std::string samplerId = parser.getOptionArg("sampler");
         CSPSampler * sampler;
+        EXP_K = parseArg<double>(parser.getOptionArg("koef"));
 
         unsigned int numSamples = parseArg<unsigned int>(parser.getOptionArg("numSamples"));
         std::cout << "PARAMS:" << std::endl;
         std::cout << "sampler:\t" << samplerId << std::endl;
         std::cout << "dataset:\t" << dataDir << std::endl;
         std::cout << "numSamples:\t" << numSamples << std::endl;
-        std::cout << "intelModelType:\t" << modelType << std::endl;
+        std::cout << "koef:\t" << EXP_K << std::endl;
 
         if (samplerId == "ijgp") {
                 int miniBucketSize = parseArg<int>(parser.getOptionArg("bucketSize"));
                 unsigned int ijgpIter = parseArg<unsigned int>(parser.getOptionArg("ijgpIter"));
                 double ijgpProbability = parseArg<double>(parser.getOptionArg("ijgpProbability"));
 
+                sampler = new IJGPSampler(p, miniBucketSize, ijgpProbability, ijgpIter);
                 std::cout << "mini-bucket size:\t" << miniBucketSize << std::endl;
                 std::cout << "IJGP probability:\t" << ijgpProbability << std::endl;
                 std::cout << "IJGP iterations:\t" << ijgpIter << std::endl;
-
-                sampler = new IJGPSampler(p, miniBucketSize, ijgpProbability, ijgpIter);
         } else if (samplerId == "gibbs") {
                 int burnIn = parseArg<int>(parser.getOptionArg("burnIn"));
 
@@ -166,5 +155,4 @@ int main(int argc, char ** argv) {
 
         return EXIT_SUCCESS;
 }
-
 

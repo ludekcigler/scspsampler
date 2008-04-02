@@ -29,11 +29,19 @@
 
 IntervalIJGPSampler::IntervalIJGPSampler(CSPProblem * aProblem, unsigned int aMaxBucketSize, double aIJGPProbability,
                 unsigned int aMaxIJGPIterations, unsigned int aMaxDomainIntervals, unsigned int aMaxValuesFromInterval):
-        CSPSampler(aProblem), mMaxBucketSize(aMaxBucketSize), mIJGPProbability(aIJGPProbability),
+        CSPSampler(aProblem), mJoinGraph(0), mMaxBucketSize(aMaxBucketSize), mIJGPProbability(aIJGPProbability),
         mMaxIJGPIterations(aMaxIJGPIterations), mMaxDomainIntervals(aMaxDomainIntervals),
-        mMaxValuesFromInterval(aMaxValuesFromInterval) {
+        mMaxValuesFromInterval(aMaxValuesFromInterval)  {
         
-        mJoinGraph = IntervalJoinGraph::createJoinGraph(aProblem, aMaxBucketSize, aMaxDomainIntervals, aMaxValuesFromInterval);
+        mOriginalJoinGraph = IntervalJoinGraph::createJoinGraph(aProblem, aMaxBucketSize, aMaxDomainIntervals, aMaxValuesFromInterval);
+
+        Assignment evidence;
+        std::map<VarIdType, Domain> removedValues;
+        // Initial propagation of constraints
+        mNoSolutionExists = !mProblem->propagateConstraints(evidence, removedValues);
+
+        // Initial join-graph propagation
+        mOriginalJoinGraph->iterativePropagation(mProblem, evidence, mMaxIJGPIterations);
 }
 
 IntervalIJGPSampler::~IntervalIJGPSampler() {
@@ -41,61 +49,46 @@ IntervalIJGPSampler::~IntervalIJGPSampler() {
 }
 
 bool IntervalIJGPSampler::getSample(Assignment & aAssignment) {
-        mJoinGraph->purgeMessages();
-        mJoinGraph->initDomainIntervals(mProblem);
-        aAssignment = Assignment();
-
-        return _getSampleInternal(aAssignment, mProblem->getVariables()->begin());
-
+        // Copy the old iterative propagation graph
         /*
-        mJoinGraph->purgeMessages();
-        Assignment evidence;
-
-        for (VariableMap::const_iterator varIt = mProblem->getVariables()->begin();
-                        varIt != mProblem->getVariables()->end(); ++varIt) {
-
-                Variable * targetVar = varIt->second;
-
-                // If we are handling the first variable or with mIJGPProbability probability,
-                // run IJGP
-                if (evidence.empty() ||
-                                ((1.0*rand()) / RAND_MAX) <= mIJGPProbability) {
-                        mJoinGraph->iterativePropagation(mProblem, evidence, mMaxIJGPIterations);
-                }
-
-                const IntervalProbabilityDistribution dist = mJoinGraph->conditionalDistribution(mProblem,
-                                targetVar, evidence);
-
-                evidence[targetVar->getId()] = _sampleFromDistribution(targetVar, dist);
-
+        if (mJoinGraph) {
+                delete mJoinGraph;
         }
 
-        aAssignment = evidence;
-        return true;*/
+        mJoinGraph = new IntervalJoinGraph(*mOriginalJoinGraph);*/
+        //mJoinGraph->restoreDomainIntervals();
+        aAssignment = Assignment();
+
+        return _getSampleInternal(mOriginalJoinGraph, aAssignment, mProblem->getVariables()->begin());
 }
 
-bool IntervalIJGPSampler::_getSampleInternal(Assignment & aEvidence, VariableMap::const_iterator aVarIterator,
+bool IntervalIJGPSampler::_getSampleInternal(const IntervalJoinGraph * aJG, Assignment & aEvidence, VariableMap::const_iterator aVarIterator,
                 VarIdType aLastChangedVariable) {
 
         if (aVarIterator == mProblem->getVariables()->end()) {
                 return true; // We have reached the last variable
         } else {
+                IntervalJoinGraph * jg = NULL;
                 std::map<VarIdType, Domain> removedValues;
-                bool domainsNotEmpty;
+                bool domainsNotEmpty = !mNoSolutionExists;
 
-                if (aEvidence.empty()) {
-                        // If the evidence is empty, there has not been any variable changed yet
-                        domainsNotEmpty = mProblem->propagateConstraints(aEvidence, removedValues);
-                } else {
+                if (!aEvidence.empty()) {
                         domainsNotEmpty = mProblem->propagateConstraints(aEvidence, removedValues, aLastChangedVariable);
                 }
 
                 if (domainsNotEmpty) {
+                        jg = new IntervalJoinGraph(*aJG);
+                        // Adjust domain intervals to new domains
+                        jg->adjustIntervalsToDomains(mProblem);
+
                         // Select variable, and its value
                         Variable * targetVar = aVarIterator->second;
-                        mJoinGraph->iterativePropagation(mProblem, aEvidence, mMaxIJGPIterations);
 
-                        IntervalProbabilityDistribution dist = mJoinGraph->conditionalDistribution(mProblem,
+                        if (!aEvidence.empty() && (rand() / (double)RAND_MAX) < mIJGPProbability) {
+                                jg->iterativePropagation(mProblem, aEvidence, mMaxIJGPIterations);
+                        }
+
+                        IntervalProbabilityDistribution dist = jg->conditionalDistribution(mProblem,
                                         targetVar, aEvidence);
 
                         std::cout << "Dist for " << targetVar->getId() << ": " << interval_probability_distribution_pprint(dist) << std::endl;
@@ -111,7 +104,7 @@ bool IntervalIJGPSampler::_getSampleInternal(Assignment & aEvidence, VariableMap
                                 targetVar->restrictDomainToValue(value, targetVarRemovedValues);
                                 ++aVarIterator;
 
-                                bool sampleFound = _getSampleInternal(aEvidence, aVarIterator, targetVar->getId());
+                                bool sampleFound = _getSampleInternal(jg, aEvidence, aVarIterator, targetVar->getId());
 
                                 --aVarIterator;
                                 targetVar->restoreRestrictedDomain(targetVarRemovedValues);
@@ -127,6 +120,7 @@ bool IntervalIJGPSampler::_getSampleInternal(Assignment & aEvidence, VariableMap
 
                                 } else {
                                         mProblem->restoreDomains(removedValues);
+                                        delete jg;
                                         return true; // Yep, we have a sample
                                 }
                         }
@@ -137,6 +131,7 @@ bool IntervalIJGPSampler::_getSampleInternal(Assignment & aEvidence, VariableMap
                 // If no try has been succesful, restore the domains and return false
                 mProblem->restoreDomains(removedValues);
 
+                delete jg;
                 return false;
         }
 }
@@ -180,6 +175,8 @@ void IntervalIJGPSampler::_eraseValueFromDist(const Variable * aVariable, VarTyp
 
         if (pdIt == aDistribution.end() || pdIt->first.lowerBound > aValue) {
                 // There is no interval containing the value, this seems strange...
+                // Ah, it's caused by the fact that the distribution was empty, so we selected the value
+                // at random
                 assert(false);
                 return;
         }

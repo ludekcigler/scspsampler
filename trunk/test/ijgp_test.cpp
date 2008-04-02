@@ -36,21 +36,25 @@ const unsigned int IJGP_MAX_ITERATIONS = 10;
 
 int main(int argc, char ** argv) {
 
-        ConstraintList * c = celar_load_constraints("data/ludek/01/ctr.txt");
-        std::vector<Domain> * d = celar_load_domains("data/ludek/01/dom.txt");
+        celar_load_costs("data/ludek/03/costs.txt");
+        ConstraintList * c = celar_load_constraints("data/ludek/03/ctr.txt");
+        std::vector<Domain> * d = celar_load_domains("data/ludek/03/dom.txt");
         VariableMap * v = new VariableMap();
-        celar_load_variables("data/ludek/01/var.txt", d, v, c);
+        celar_load_variables("data/ludek/03/var.txt", d, v, c);
 
         CSPProblem * p = new CSPProblem(v, c);
 
         JoinGraph * jg = JoinGraph::createJoinGraph(p, 3);
         jg->pprint();
 
-        IJGPSampler * sampler = new IJGPSampler(p, 3, 1.0);
+        IJGPSampler * sampler = new IJGPSampler(p, 3, 1.0, 10);
         
         Assignment a;
         for (int i = 0; i < 100; ++i) {
-                a = sampler->getSample();
+                if (!sampler->getSample(a)) {
+                        std::cout << "No solution exists" << std::endl;
+                        return EXIT_FAILURE;
+                }
                 std::cout << "New sample, eval " << p->evalAssignment(a) << " ";
                 assignment_pprint(a);
                 std::cout << std::endl;

@@ -130,6 +130,9 @@ typedef std::map<Scope, JoinGraphNode *> JoinGraphNodeMap;
 
 class JoinGraph {
 public:
+        JoinGraph() {};
+
+        JoinGraph(const JoinGraph & aGraph);
         ~JoinGraph();
 
         /**
