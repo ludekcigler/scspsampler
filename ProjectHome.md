@@ -1,0 +1,1 @@
+Implementation of several algorithms for uniformly sampling from the solution space of SoftCSP problems (my master thesis)
